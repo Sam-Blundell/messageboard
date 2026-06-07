@@ -93,11 +93,106 @@ func TestCreateConcurrencySafety(t *testing.T) {
 	ps := NewPostStorage()
 
 	var wg sync.WaitGroup
-	for i := 0; i < n; i++ {
+	for range n {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			ps.Create("post")
+		}()
+	}
+	wg.Wait()
+
+	if ps.idCounter != n {
+		t.Errorf("got idCounter %d, want %d", ps.idCounter, n)
+	}
+	if len(ps.posts) != n {
+		t.Errorf("got %d posts, want %d", len(ps.posts), n)
+	}
+}
+
+// An empty store returns an empty, non-nil slice — not nil. Callers can range
+// over it and len it without special-casing, and it JSON-encodes as [] later.
+func TestListEmptyReturnsEmptySlice(t *testing.T) {
+	ps := NewPostStorage()
+
+	got := ps.List()
+
+	if got == nil {
+		t.Error("got nil, want non-nil empty slice")
+	}
+	if len(got) != 0 {
+		t.Errorf("got %d posts, want 0", len(got))
+	}
+}
+
+// List must return posts sorted ascending by ID. The map it reads from has
+// randomised iteration order, so a missing sort would surface here on most
+// runs. We use plenty of posts so a coincidentally-sorted random order is
+// vanishingly unlikely, and assert each ID is strictly greater than the last.
+func TestListReturnsPostsSortedByID(t *testing.T) {
+	ps := NewPostStorage()
+
+	const n = 10
+	for range n {
+		ps.Create("post")
+	}
+
+	got := ps.List()
+
+	if len(got) != n {
+		t.Fatalf("got %d posts, want %d", len(got), n)
+	}
+	for i := 1; i < len(got); i++ {
+		if got[i-1].ID >= got[i].ID {
+			t.Errorf("not sorted ascending: index %d has ID %d, index %d has ID %d",
+				i-1, got[i-1].ID, i, got[i].ID)
+		}
+	}
+}
+
+// List returns every post that was created, with content intact. Because posts
+// are created in ascending-ID order and List returns ascending, the created
+// slice and the listed slice should line up index-for-index.
+func TestListReturnsAllCreatedPosts(t *testing.T) {
+	ps := NewPostStorage()
+
+	created := []Post{
+		ps.Create("first"),
+		ps.Create("second"),
+		ps.Create("third"),
+	}
+
+	got := ps.List()
+
+	if len(got) != len(created) {
+		t.Fatalf("got %d posts, want %d", len(got), len(created))
+	}
+	for i := range created {
+		if got[i] != created[i] {
+			t.Errorf("post %d: got %+v, want %+v", i, got[i], created[i])
+		}
+	}
+}
+
+// List iterates the map while Create writes it; without a lock that's a
+// "concurrent map iteration and map write" panic (distinct from the access
+// race ByID would hit). Run with -race. The List result is timing-dependent,
+// so we ignore it and assert only that the writes landed.
+func TestListConcurrentAccess(t *testing.T) {
+	const n = 50
+
+	ps := NewPostStorage()
+
+	var wg sync.WaitGroup
+	for range n {
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			ps.Create("post")
+		}()
+		go func() {
+			defer wg.Done()
+			_ = ps.List()
 		}()
 	}
 	wg.Wait()
@@ -168,7 +263,7 @@ func TestByIDNotFound(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			ps := NewPostStorage()
-			for i := 0; i < c.seed; i++ {
+			for range c.seed {
 				ps.Create("post")
 			}
 
@@ -196,7 +291,7 @@ func TestByIDConcurrentAccess(t *testing.T) {
 	ps := NewPostStorage()
 
 	var wg sync.WaitGroup
-	for i := 0; i < n; i++ {
+	for range n {
 		wg.Add(2) // one writer and one reader per iteration
 		go func() {
 			defer wg.Done()
