@@ -21,9 +21,11 @@ func TestNewPostStorageStartsEmpty(t *testing.T) {
 }
 
 // Create should hand back a fully-formed Post: the first ID is 1, the body is
-// whatever we passed, and the timestamp is stamped to roughly now.
+// whatever we passed, and the timestamp comes from the injected clock.
 func TestCreateReturnsCompletePost(t *testing.T) {
-	ps := NewPostStorage()
+	fixedTime := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	fixedTimeFunc := func() time.Time { return fixedTime }
+	ps := NewPostStorage(WithClock(fixedTimeFunc))
 
 	got := ps.Create("first!")
 
@@ -33,13 +35,8 @@ func TestCreateReturnsCompletePost(t *testing.T) {
 	if got.Body != "first!" {
 		t.Errorf("got body %q, want %q", got.Body, "first!")
 	}
-	// Don't assert an exact time (it'll never match) — just that it was set
-	// and is recent.
-	if got.PostTime.IsZero() {
-		t.Error("PostTime was not set")
-	}
-	if elapsed := time.Since(got.PostTime); elapsed > time.Second {
-		t.Errorf("PostTime is %v old, want it to be recent", elapsed)
+	if !got.PostTime.Equal(fixedTime) {
+		t.Errorf("got PostTime %v, want %v", got.PostTime, fixedTime)
 	}
 }
 
