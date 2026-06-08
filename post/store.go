@@ -8,23 +8,23 @@ import (
 	"time"
 )
 
-var ErrNotFound = errors.New("not found")
+var ErrNotFound = errors.New("post not found")
 
-type Persistence struct {
+type Store struct {
 	posts     map[int64]Post
 	idCounter int64
 	now       func() time.Time
 	mu        sync.Mutex
 }
 
-type Option func(*Persistence)
+type Option func(*Store)
 
 func WithClock(now func() time.Time) Option {
-	return func(ps *Persistence) { ps.now = now }
+	return func(ps *Store) { ps.now = now }
 }
 
-func NewPersistence(opts ...Option) *Persistence {
-	ps := &Persistence{
+func NewStore(opts ...Option) *Store {
+	ps := &Store{
 		posts: make(map[int64]Post),
 		now:   time.Now,
 	}
@@ -36,7 +36,7 @@ func NewPersistence(opts ...Option) *Persistence {
 	return ps
 }
 
-func (ps *Persistence) Create(body string) Post {
+func (ps *Store) Create(body string) Post {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
 	ps.idCounter++
@@ -49,7 +49,7 @@ func (ps *Persistence) Create(body string) Post {
 	return newPost
 }
 
-func (ps *Persistence) ByID(id int64) (Post, error) {
+func (ps *Store) ByID(id int64) (Post, error) {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
 	post, ok := ps.posts[id]
@@ -59,7 +59,7 @@ func (ps *Persistence) ByID(id int64) (Post, error) {
 	return post, nil
 }
 
-func (ps *Persistence) List() []Post {
+func (ps *Store) List() []Post {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
 	list := make([]Post, 0, len(ps.posts))

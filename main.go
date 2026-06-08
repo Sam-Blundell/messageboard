@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	postStorage := post.NewPersistence()
+	postStorage := post.NewStore()
 	postStorage.Create("first")
 	postStorage.Create("second")
 	postStorage.Create("3 GET")
