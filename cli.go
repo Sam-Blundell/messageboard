@@ -6,6 +6,8 @@ import (
 	"io"
 	"strconv"
 	"strings"
+
+	"github.com/Sam-Blundell/messageboard/post"
 )
 
 func parseInput(input string) (cmd, args string) {
@@ -17,13 +19,13 @@ func parseInput(input string) (cmd, args string) {
 	return cmd, args
 }
 
-func formatPost(post Post) (formattedPost string) {
+func formatPost(post post.Post) (formattedPost string) {
 	formattedTime := post.PostTime.Format("2006-01-02 15:04:05")
 	formattedPost = fmt.Sprintf("%s - %d\n%s\n", formattedTime, post.ID, post.Body)
 	return formattedPost
 }
 
-func handleGet(args string, postStore *PostStorage) (formatted string, err error) {
+func handleGet(args string, postStore *post.Persistence) (formatted string, err error) {
 	postID, err := strconv.ParseInt(args, 10, 64)
 	if err != nil {
 		return "", fmt.Errorf("parsing argument: %w", err)
@@ -36,7 +38,7 @@ func handleGet(args string, postStore *PostStorage) (formatted string, err error
 	return formatted, nil
 }
 
-func action(cmd, args string, postStore *PostStorage) (result string, quit bool, err error) {
+func action(cmd, args string, postStore *post.Persistence) (result string, quit bool, err error) {
 	switch cmd {
 	case "quit":
 		return "", true, nil
@@ -54,7 +56,7 @@ func action(cmd, args string, postStore *PostStorage) (result string, quit bool,
 	}
 }
 
-func run(in io.Reader, out io.Writer, errOut io.Writer, postStorage *PostStorage) {
+func run(in io.Reader, out io.Writer, errOut io.Writer, postStorage *post.Persistence) {
 	scanner := bufio.NewScanner(in)
 
 	fmt.Fprint(out, ">")

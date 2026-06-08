@@ -1,4 +1,4 @@
-package main
+package post
 
 import (
 	"cmp"
@@ -8,23 +8,23 @@ import (
 	"time"
 )
 
-var ErrPostNotFound = errors.New("post not found")
+var ErrNotFound = errors.New("not found")
 
-type PostStorage struct {
+type Persistence struct {
 	posts     map[int64]Post
 	idCounter int64
 	now       func() time.Time
 	mu        sync.Mutex
 }
 
-type Option func(*PostStorage)
+type Option func(*Persistence)
 
 func WithClock(now func() time.Time) Option {
-	return func(ps *PostStorage) { ps.now = now }
+	return func(ps *Persistence) { ps.now = now }
 }
 
-func NewPostStorage(opts ...Option) *PostStorage {
-	ps := &PostStorage{
+func NewPersistence(opts ...Option) *Persistence {
+	ps := &Persistence{
 		posts: make(map[int64]Post),
 		now:   time.Now,
 	}
@@ -36,7 +36,7 @@ func NewPostStorage(opts ...Option) *PostStorage {
 	return ps
 }
 
-func (ps *PostStorage) Create(body string) Post {
+func (ps *Persistence) Create(body string) Post {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
 	ps.idCounter++
@@ -49,17 +49,17 @@ func (ps *PostStorage) Create(body string) Post {
 	return newPost
 }
 
-func (ps *PostStorage) ByID(id int64) (Post, error) {
+func (ps *Persistence) ByID(id int64) (Post, error) {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
 	post, ok := ps.posts[id]
 	if !ok {
-		return Post{}, ErrPostNotFound
+		return Post{}, ErrNotFound
 	}
 	return post, nil
 }
 
-func (ps *PostStorage) List() []Post {
+func (ps *Persistence) List() []Post {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
 	list := make([]Post, 0, len(ps.posts))

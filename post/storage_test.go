@@ -1,4 +1,4 @@
-package main
+package post
 
 import (
 	"errors"
@@ -7,10 +7,10 @@ import (
 	"time"
 )
 
-// A freshly constructed store should start empty with the counter at zero, so
+// A freshly constructed persistence should start empty with the counter at zero, so
 // the very first post becomes ID 1.
-func TestNewPostStorageStartsEmpty(t *testing.T) {
-	ps := NewPostStorage()
+func TestNewPersistenceStartsEmpty(t *testing.T) {
+	ps := NewPersistence()
 
 	if ps.idCounter != 0 {
 		t.Errorf("got idCounter %d, want 0", ps.idCounter)
@@ -25,7 +25,7 @@ func TestNewPostStorageStartsEmpty(t *testing.T) {
 func TestCreateReturnsCompletePost(t *testing.T) {
 	fixedTime := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
 	fixedTimeFunc := func() time.Time { return fixedTime }
-	ps := NewPostStorage(WithClock(fixedTimeFunc))
+	ps := NewPersistence(WithClock(fixedTimeFunc))
 
 	got := ps.Create("first!")
 
@@ -40,26 +40,26 @@ func TestCreateReturnsCompletePost(t *testing.T) {
 	}
 }
 
-// The Post returned by Create should be the same one stored in the map under
-// its ID. This also shows the comma-ok map read and whole-struct comparison.
-func TestCreateStoresReturnedPost(t *testing.T) {
-	ps := NewPostStorage()
+// The Post returned by Create should be the same one saved under its ID.
+// This also shows the comma-ok map read and whole-struct comparison.
+func TestCreatePersistsReturnedPost(t *testing.T) {
+	ps := NewPersistence()
 
 	got := ps.Create("hello")
 
-	stored, ok := ps.posts[got.ID]
+	saved, ok := ps.posts[got.ID]
 	if !ok {
-		t.Fatalf("no post stored under ID %d", got.ID)
+		t.Fatalf("no post saved under ID %d", got.ID)
 	}
-	if stored != got {
-		t.Errorf("stored post %+v does not match returned post %+v", stored, got)
+	if saved != got {
+		t.Errorf("saved post %+v does not match returned post %+v", saved, got)
 	}
 }
 
 // Table-driven test: each successive Create bumps the ID by one. The cases run
-// in order against the same store, so the IDs accumulate 1, 2, 3.
+// in order against the same persistence, so the IDs accumulate 1, 2, 3.
 func TestCreateIncrementsIDs(t *testing.T) {
-	ps := NewPostStorage()
+	ps := NewPersistence()
 
 	cases := []struct {
 		body   string
@@ -87,7 +87,7 @@ func TestCreateIncrementsIDs(t *testing.T) {
 func TestCreateConcurrencySafety(t *testing.T) {
 	const n = 9
 
-	ps := NewPostStorage()
+	ps := NewPersistence()
 
 	var wg sync.WaitGroup
 	for range n {
@@ -107,10 +107,10 @@ func TestCreateConcurrencySafety(t *testing.T) {
 	}
 }
 
-// An empty store returns an empty, non-nil slice — not nil. Callers can range
-// over it and len it without special-casing, and it JSON-encodes as [] later.
+// An empty persistence returns an empty, non-nil slice — not nil. Callers can
+// range over and len it without special-casing. It JSON-encodes as [] later.
 func TestListEmptyReturnsEmptySlice(t *testing.T) {
-	ps := NewPostStorage()
+	ps := NewPersistence()
 
 	got := ps.List()
 
@@ -127,7 +127,7 @@ func TestListEmptyReturnsEmptySlice(t *testing.T) {
 // runs. We use plenty of posts so a coincidentally-sorted random order is
 // vanishingly unlikely, and assert each ID is strictly greater than the last.
 func TestListReturnsPostsSortedByID(t *testing.T) {
-	ps := NewPostStorage()
+	ps := NewPersistence()
 
 	const n = 10
 	for range n {
@@ -151,7 +151,7 @@ func TestListReturnsPostsSortedByID(t *testing.T) {
 // are created in ascending-ID order and List returns ascending, the created
 // slice and the listed slice should line up index-for-index.
 func TestListReturnsAllCreatedPosts(t *testing.T) {
-	ps := NewPostStorage()
+	ps := NewPersistence()
 
 	created := []Post{
 		ps.Create("first"),
@@ -178,7 +178,7 @@ func TestListReturnsAllCreatedPosts(t *testing.T) {
 func TestListConcurrentAccess(t *testing.T) {
 	const n = 50
 
-	ps := NewPostStorage()
+	ps := NewPersistence()
 
 	var wg sync.WaitGroup
 	for range n {
@@ -207,7 +207,7 @@ func TestListConcurrentAccess(t *testing.T) {
 // so the test says "look up the post I just made" and won't break if setup
 // changes.
 func TestByIDReturnsCreatedPost(t *testing.T) {
-	ps := NewPostStorage()
+	ps := NewPersistence()
 
 	created := ps.Create("hello")
 
@@ -224,7 +224,7 @@ func TestByIDReturnsCreatedPost(t *testing.T) {
 // the first, not an arbitrary match. We loop over every post we created and
 // confirm each round-trips.
 func TestByIDReturnsEachPost(t *testing.T) {
-	ps := NewPostStorage()
+	ps := NewPersistence()
 
 	created := []Post{
 		ps.Create("first"),
@@ -243,8 +243,8 @@ func TestByIDReturnsEachPost(t *testing.T) {
 	}
 }
 
-// A missing ID returns ErrPostNotFound and the zero Post, whether the store is
-// empty or holds other posts. Checked with errors.Is (not ==) so it still
+// A missing ID returns ErrNotFound and the zero Post, whether the persistence
+// is empty or holds other posts. Checked with errors.Is (not ==) so it still
 // works if the error is ever wrapped by a future backend.
 func TestByIDNotFound(t *testing.T) {
 	cases := []struct {
@@ -252,21 +252,21 @@ func TestByIDNotFound(t *testing.T) {
 		seed    int   // posts to create before querying
 		queryID int64 // the (missing) ID to look up
 	}{
-		{"empty store", 0, 1},
+		{"empty persistence", 0, 1},
 		{"id below range", 3, 0},
 		{"id above range", 3, 999},
 	}
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			ps := NewPostStorage()
+			ps := NewPersistence()
 			for range c.seed {
 				ps.Create("post")
 			}
 
 			got, err := ps.ByID(c.queryID)
-			if !errors.Is(err, ErrPostNotFound) {
-				t.Errorf("got error %v, want ErrPostNotFound", err)
+			if !errors.Is(err, ErrNotFound) {
+				t.Errorf("got error %v, want ErrNotFound", err)
 			}
 			// Parens are required: `got != Post{}` would misparse, as Go reads
 			// the `{` as the start of a block.
@@ -285,7 +285,7 @@ func TestByIDNotFound(t *testing.T) {
 func TestByIDConcurrentAccess(t *testing.T) {
 	const n = 50
 
-	ps := NewPostStorage()
+	ps := NewPersistence()
 
 	var wg sync.WaitGroup
 	for range n {

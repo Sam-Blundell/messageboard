@@ -1,9 +1,13 @@
 package main
 
-import "os"
+import (
+	"os"
+
+	"github.com/Sam-Blundell/messageboard/post"
+)
 
 func main() {
-	postStorage := NewPostStorage()
+	postStorage := post.NewPersistence()
 	postStorage.Create("first")
 	postStorage.Create("second")
 	postStorage.Create("3 GET")
