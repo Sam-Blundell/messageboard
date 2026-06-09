@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -38,6 +39,27 @@ func handleGet(args string, postStore *post.Store) (formatted string, err error)
 	return formatted, nil
 }
 
+func handlePost(body string, postStore *post.Store) (formatted string, err error) {
+	if len(body) == 0 {
+		return "", errors.New("post requires a body")
+	}
+	newPost := postStore.Create(body)
+	formatted = formatPost(newPost)
+	return formatted, nil
+}
+
+func handleList(postStore *post.Store) (formatted string) {
+	posts := postStore.List()
+	if len(posts) == 0 {
+		return "no posts yet\n"
+	}
+	var formattedPosts strings.Builder
+	for _, p := range posts {
+		formattedPosts.WriteString(formatPost(p))
+	}
+	return formattedPosts.String()
+}
+
 func action(cmd, args string, postStore *post.Store) (result string, quit bool, err error) {
 	switch cmd {
 	case "quit":
@@ -47,6 +69,15 @@ func action(cmd, args string, postStore *post.Store) (result string, quit bool, 
 		if err != nil {
 			return "", false, err
 		}
+		return result, false, nil
+	case "post":
+		result, err = handlePost(args, postStore)
+		if err != nil {
+			return "", false, err
+		}
+		return result, false, nil
+	case "list":
+		result = handleList(postStore)
 		return result, false, nil
 	case "":
 		return "", false, nil
