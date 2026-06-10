@@ -9,10 +9,10 @@ import (
 func main() {
 	store := post.NewStore()
 	c := &cli{
-		store: store,
-		in:        os.Stdin,
-		out:       os.Stdout,
-		errOut:    os.Stderr,
+		store:  store,
+		in:     os.Stdin,
+		out:    os.Stdout,
+		errOut: os.Stderr,
 	}
 	c.run()
 }
