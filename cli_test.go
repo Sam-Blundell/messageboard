@@ -83,3 +83,23 @@ func TestRun(t *testing.T) {
 		})
 	}
 }
+
+// quit must stop the loop *before* the next command runs — not merely let the
+// program exit at EOF. So a command after "quit" should never execute: nothing
+// beyond the initial prompt should reach out. An exact match (not a substring)
+// is what proves "nothing else happened".
+func TestRunQuit(t *testing.T) {
+	store := post.NewStore()
+	in := strings.NewReader("quit\npost should-not-run")
+	var out, errOut bytes.Buffer
+
+	app := &cli{store: store, in: in, out: &out, errOut: &errOut}
+	app.run()
+
+	if out.String() != ">" {
+		t.Errorf("quit should stop the loop before later input; got out %q, want %q", out.String(), ">")
+	}
+	if errOut.Len() != 0 {
+		t.Errorf("errOut: want empty, got %q", errOut.String())
+	}
+}
