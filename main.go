@@ -7,6 +7,12 @@ import (
 )
 
 func main() {
-	postStorage := post.NewStore()
-	run(os.Stdin, os.Stdout, os.Stderr, postStorage)
+	store := post.NewStore()
+	c := &cli{
+		store: store,
+		in:        os.Stdin,
+		out:       os.Stdout,
+		errOut:    os.Stderr,
+	}
+	c.run()
 }

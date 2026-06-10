@@ -11,6 +11,13 @@ import (
 	"github.com/Sam-Blundell/messageboard/post"
 )
 
+type cli struct {
+	store  *post.Store
+	in     io.Reader
+	out    io.Writer
+	errOut io.Writer
+}
+
 func parseInput(input string) (cmd, args string) {
 	trimmed := strings.TrimSpace(input)
 	cmd, args, _ = strings.Cut(trimmed, " ")
@@ -26,58 +33,59 @@ func formatPost(p post.Post) (formattedPost string) {
 	return formattedPost
 }
 
-func handleGet(args string, postStore *post.Store) (formatted string, err error) {
-	postID, err := strconv.ParseInt(args, 10, 64)
-	if err != nil {
-		return "", fmt.Errorf("parsing argument: %w", err)
-	}
-	fetched, err := postStore.ByID(postID)
-	if err != nil {
-		return "", fmt.Errorf("can't get post %d: %w", postID, err)
-	}
-	formatted = formatPost(fetched)
-	return formatted, nil
-}
-
-func handlePost(body string, postStore *post.Store) (formatted string, err error) {
-	if len(body) == 0 {
-		return "", errors.New("post requires a body")
-	}
-	newPost := postStore.Create(body)
-	formatted = formatPost(newPost)
-	return formatted, nil
-}
-
-func handleList(postStore *post.Store) (formatted string) {
-	posts := postStore.List()
-	if len(posts) == 0 {
+func formatList(list []post.Post) (formattedList string) {
+	if len(list) == 0 {
 		return "no posts yet\n"
 	}
-	var formattedPosts strings.Builder
-	for _, p := range posts {
-		formattedPosts.WriteString(formatPost(p))
+	var formattedBuffer strings.Builder
+	for _, p := range list {
+		formattedBuffer.WriteString(formatPost(p))
 	}
-	return formattedPosts.String()
+	formattedList = formattedBuffer.String()
+	return formattedList
 }
 
-func action(cmd, args string, postStore *post.Store) (result string, quit bool, err error) {
+func (c *cli) handleGet(args string) (fetched post.Post, err error) {
+	postID, err := strconv.ParseInt(args, 10, 64)
+	if err != nil {
+		return post.Post{}, fmt.Errorf("parsing argument: %w", err)
+	}
+	fetched, err = c.store.ByID(postID)
+	if err != nil {
+		return post.Post{}, fmt.Errorf("can't get post %d: %w", postID, err)
+	}
+	return fetched, nil
+}
+
+func (c *cli) handlePost(body string) (newPost post.Post, err error) {
+	if len(body) == 0 {
+		return post.Post{}, errors.New("post requires a body")
+	}
+	newPost = c.store.Create(body)
+	return newPost, nil
+}
+
+func (c *cli) action(cmd, args string) (result string, quit bool, err error) {
 	switch cmd {
 	case "quit":
 		return "", true, nil
 	case "get":
-		result, err = handleGet(args, postStore)
+		fetched, err := c.handleGet(args)
 		if err != nil {
 			return "", false, err
 		}
+		result = formatPost(fetched)
 		return result, false, nil
 	case "post":
-		result, err = handlePost(args, postStore)
+		newPost, err := c.handlePost(args)
 		if err != nil {
 			return "", false, err
 		}
+		result = formatPost(newPost)
 		return result, false, nil
 	case "list":
-		result = handleList(postStore)
+		posts := c.store.List()
+		result = formatList(posts)
 		return result, false, nil
 	case "":
 		return "", false, nil
@@ -87,23 +95,23 @@ func action(cmd, args string, postStore *post.Store) (result string, quit bool, 
 	}
 }
 
-func run(in io.Reader, out io.Writer, errOut io.Writer, postStorage *post.Store) {
-	scanner := bufio.NewScanner(in)
+func (c *cli) run() {
+	scanner := bufio.NewScanner(c.in)
 
-	fmt.Fprint(out, ">")
+	fmt.Fprint(c.out, ">")
 	for scanner.Scan() {
 		cmd, args := parseInput(scanner.Text())
-		result, quit, err := action(cmd, args, postStorage)
+		result, quit, err := c.action(cmd, args)
 		if quit {
 			return
 		}
 		if err != nil {
-			fmt.Fprintln(errOut, err)
+			fmt.Fprintln(c.errOut, err)
 		}
-		fmt.Fprint(out, result)
-		fmt.Fprint(out, ">")
+		fmt.Fprint(c.out, result)
+		fmt.Fprint(c.out, ">")
 	}
 	if err := scanner.Err(); err != nil {
-		fmt.Fprintln(errOut, "reading input:", err)
+		fmt.Fprintln(c.errOut, "reading input:", err)
 	}
 }
