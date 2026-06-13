@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	store := post.NewStore()
+	store := post.NewMemStore()
 	c := &cli{
 		store:  store,
 		in:     os.Stdin,

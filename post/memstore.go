@@ -10,21 +10,21 @@ import (
 
 var ErrNotFound = errors.New("post not found")
 
-type Store struct {
+type MemStore struct {
 	posts     map[int64]Post
 	idCounter int64
 	now       func() time.Time
 	mu        sync.Mutex
 }
 
-type Option func(*Store)
+type Option func(*MemStore)
 
 func WithClock(now func() time.Time) Option {
-	return func(ps *Store) { ps.now = now }
+	return func(ps *MemStore) { ps.now = now }
 }
 
-func NewStore(opts ...Option) *Store {
-	ps := &Store{
+func NewMemStore(opts ...Option) *MemStore {
+	ps := &MemStore{
 		posts: make(map[int64]Post),
 		now:   time.Now,
 	}
@@ -36,7 +36,7 @@ func NewStore(opts ...Option) *Store {
 	return ps
 }
 
-func (ps *Store) Create(body string) Post {
+func (ps *MemStore) Create(body string) Post {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
 	ps.idCounter++
@@ -49,7 +49,7 @@ func (ps *Store) Create(body string) Post {
 	return newPost
 }
 
-func (ps *Store) ByID(id int64) (Post, error) {
+func (ps *MemStore) ByID(id int64) (Post, error) {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
 	post, ok := ps.posts[id]
@@ -59,7 +59,7 @@ func (ps *Store) ByID(id int64) (Post, error) {
 	return post, nil
 }
 
-func (ps *Store) List() []Post {
+func (ps *MemStore) List() []Post {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
 	list := make([]Post, 0, len(ps.posts))

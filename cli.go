@@ -12,7 +12,7 @@ import (
 )
 
 type cli struct {
-	store  *post.Store
+	store  post.Repository
 	in     io.Reader
 	out    io.Writer
 	errOut io.Writer
