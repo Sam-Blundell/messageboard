@@ -50,7 +50,7 @@ func TestRun(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.input, func(t *testing.T) {
-			store := post.NewMemStore(post.WithClock(func() time.Time { return fixed }))
+			store := post.NewInMemory(post.WithClock(func() time.Time { return fixed }))
 			in := strings.NewReader(c.input)
 			var out, errOut bytes.Buffer
 
@@ -89,7 +89,7 @@ func TestRun(t *testing.T) {
 // beyond the initial prompt should reach out. An exact match (not a substring)
 // is what proves "nothing else happened".
 func TestRunQuit(t *testing.T) {
-	store := post.NewMemStore()
+	store := post.NewInMemory()
 	in := strings.NewReader("quit\npost should-not-run")
 	var out, errOut bytes.Buffer
 

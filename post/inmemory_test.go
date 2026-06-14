@@ -17,16 +17,16 @@ func mustCreate(t *testing.T, repo Repository, body string) Post {
 	return p
 }
 
-// MemStore must satisfy the shared Repository contract (same suite FileStore
-// runs). The white-box tests below additionally cover MemStore internals.
-func TestMemStoreContract(t *testing.T) {
-	testRepository(t, func() Repository { return NewMemStore() })
+// InMemory must satisfy the shared Repository contract (same suite FileStore
+// runs). The white-box tests below additionally cover InMemory internals.
+func TestInMemoryContract(t *testing.T) {
+	testRepository(t, func() Repository { return NewInMemory() })
 }
 
 // A freshly constructed store should start empty with the counter at zero, so
 // the very first post becomes ID 1.
-func TestNewMemStoreStartsEmpty(t *testing.T) {
-	ps := NewMemStore()
+func TestNewInMemoryStartsEmpty(t *testing.T) {
+	ps := NewInMemory()
 
 	if ps.idCounter != 0 {
 		t.Errorf("got idCounter %d, want 0", ps.idCounter)
@@ -41,7 +41,7 @@ func TestNewMemStoreStartsEmpty(t *testing.T) {
 func TestCreateReturnsCompletePost(t *testing.T) {
 	fixedTime := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
 	fixedTimeFunc := func() time.Time { return fixedTime }
-	ps := NewMemStore(WithClock(fixedTimeFunc))
+	ps := NewInMemory(WithClock(fixedTimeFunc))
 
 	got := mustCreate(t, ps, "first!")
 
@@ -59,7 +59,7 @@ func TestCreateReturnsCompletePost(t *testing.T) {
 // The Post returned by Create should be the same one saved under its ID.
 // This also shows the comma-ok map read and whole-struct comparison.
 func TestCreatePersistsReturnedPost(t *testing.T) {
-	ps := NewMemStore()
+	ps := NewInMemory()
 
 	got := mustCreate(t, ps, "hello")
 
@@ -75,7 +75,7 @@ func TestCreatePersistsReturnedPost(t *testing.T) {
 // Table-driven test: each successive Create bumps the ID by one. The cases run
 // in order against the same store, so the IDs accumulate 1, 2, 3.
 func TestCreateIncrementsIDs(t *testing.T) {
-	ps := NewMemStore()
+	ps := NewInMemory()
 
 	cases := []struct {
 		body   string
@@ -103,7 +103,7 @@ func TestCreateIncrementsIDs(t *testing.T) {
 func TestCreateConcurrencySafety(t *testing.T) {
 	const n = 9
 
-	ps := NewMemStore()
+	ps := NewInMemory()
 
 	var wg sync.WaitGroup
 	for range n {
@@ -126,7 +126,7 @@ func TestCreateConcurrencySafety(t *testing.T) {
 // An empty store returns an empty, non-nil slice — not nil. Callers can
 // range over and len it without special-casing. It JSON-encodes as [] later.
 func TestListEmptyReturnsEmptySlice(t *testing.T) {
-	ps := NewMemStore()
+	ps := NewInMemory()
 
 	got, _ := ps.List()
 
@@ -143,7 +143,7 @@ func TestListEmptyReturnsEmptySlice(t *testing.T) {
 // runs. We use plenty of posts so a coincidentally-sorted random order is
 // vanishingly unlikely, and assert each ID is strictly greater than the last.
 func TestListReturnsPostsSortedByID(t *testing.T) {
-	ps := NewMemStore()
+	ps := NewInMemory()
 
 	const n = 10
 	for range n {
@@ -167,7 +167,7 @@ func TestListReturnsPostsSortedByID(t *testing.T) {
 // are created in ascending-ID order and List returns ascending, the created
 // slice and the listed slice should line up index-for-index.
 func TestListReturnsAllCreatedPosts(t *testing.T) {
-	ps := NewMemStore()
+	ps := NewInMemory()
 
 	created := []Post{
 		mustCreate(t, ps, "first"),
@@ -194,7 +194,7 @@ func TestListReturnsAllCreatedPosts(t *testing.T) {
 func TestListConcurrentAccess(t *testing.T) {
 	const n = 50
 
-	ps := NewMemStore()
+	ps := NewInMemory()
 
 	var wg sync.WaitGroup
 	for range n {
@@ -223,7 +223,7 @@ func TestListConcurrentAccess(t *testing.T) {
 // so the test says "look up the post I just made" and won't break if setup
 // changes.
 func TestByIDReturnsCreatedPost(t *testing.T) {
-	ps := NewMemStore()
+	ps := NewInMemory()
 
 	created := mustCreate(t, ps, "hello")
 
@@ -240,7 +240,7 @@ func TestByIDReturnsCreatedPost(t *testing.T) {
 // the first, not an arbitrary match. We loop over every post we created and
 // confirm each round-trips.
 func TestByIDReturnsEachPost(t *testing.T) {
-	ps := NewMemStore()
+	ps := NewInMemory()
 
 	created := []Post{
 		mustCreate(t, ps, "first"),
@@ -275,7 +275,7 @@ func TestByIDNotFound(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			ps := NewMemStore()
+			ps := NewInMemory()
 			for range c.seed {
 				ps.Create("post")
 			}
@@ -301,7 +301,7 @@ func TestByIDNotFound(t *testing.T) {
 func TestByIDConcurrentAccess(t *testing.T) {
 	const n = 50
 
-	ps := NewMemStore()
+	ps := NewInMemory()
 
 	var wg sync.WaitGroup
 	for range n {

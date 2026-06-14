@@ -7,21 +7,21 @@ import (
 	"time"
 )
 
-type MemStore struct {
+type InMemory struct {
 	posts     map[int64]Post
 	idCounter int64
 	now       func() time.Time
 	mu        sync.Mutex
 }
 
-type Option func(*MemStore)
+type Option func(*InMemory)
 
 func WithClock(now func() time.Time) Option {
-	return func(ps *MemStore) { ps.now = now }
+	return func(ps *InMemory) { ps.now = now }
 }
 
-func NewMemStore(opts ...Option) *MemStore {
-	ps := &MemStore{
+func NewInMemory(opts ...Option) *InMemory {
+	ps := &InMemory{
 		posts: make(map[int64]Post),
 		now:   time.Now,
 	}
@@ -33,7 +33,7 @@ func NewMemStore(opts ...Option) *MemStore {
 	return ps
 }
 
-func (ps *MemStore) Create(body string) (newPost Post, err error) {
+func (ps *InMemory) Create(body string) (newPost Post, err error) {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
 	ps.idCounter++
@@ -46,7 +46,7 @@ func (ps *MemStore) Create(body string) (newPost Post, err error) {
 	return newPost, nil
 }
 
-func (ps *MemStore) ByID(id int64) (Post, error) {
+func (ps *InMemory) ByID(id int64) (Post, error) {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
 	post, ok := ps.posts[id]
@@ -56,7 +56,7 @@ func (ps *MemStore) ByID(id int64) (Post, error) {
 	return post, nil
 }
 
-func (ps *MemStore) List() (list []Post, err error) {
+func (ps *InMemory) List() (list []Post, err error) {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
 	list = make([]Post, 0, len(ps.posts))
