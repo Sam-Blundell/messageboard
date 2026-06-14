@@ -10,7 +10,7 @@ import (
 // testRepository runs the behavioural contract every Repository must satisfy,
 // against whatever implementation newRepo builds. It is deliberately black-box —
 // only interface methods, no peeking at internals — so the same suite can run
-// against any backend (MemStore, FileStore, a future DB store). Each subtest
+// against any backend (InMemory, File, a future DB store). Each subtest
 // gets a fresh repo from newRepo().
 func testRepository(t *testing.T, newRepo func() Repository) {
 	t.Run("empty repo lists nothing", func(t *testing.T) {
@@ -105,25 +105,25 @@ func tempFile(t *testing.T) string {
 	return filepath.Join(t.TempDir(), "posts.json")
 }
 
-// FileStore must satisfy the shared Repository contract.
-func TestFileStoreContract(t *testing.T) {
+// File must satisfy the shared Repository contract.
+func TestFileContract(t *testing.T) {
 	testRepository(t, func() Repository {
-		return NewFileStore(tempFile(t))
+		return NewFile(tempFile(t))
 	})
 }
 
-// The whole point of a file store: posts survive the process. A new FileStore
+// The whole point of a file store: posts survive the process. A new File
 // over the same file sees what a previous instance wrote, and continues IDs from
 // the persisted state rather than resetting.
-func TestFileStorePersistsAcrossRestart(t *testing.T) {
+func TestFilePersistsAcrossRestart(t *testing.T) {
 	path := tempFile(t)
 
-	first := NewFileStore(path)
+	first := NewFile(path)
 	a := mustCreate(t, first, "first")
 	b := mustCreate(t, first, "second")
 
 	// A new instance over the same path simulates a restart.
-	second := NewFileStore(path)
+	second := NewFile(path)
 
 	got, err := second.List()
 	if err != nil {
@@ -158,8 +158,8 @@ func TestFileStorePersistsAcrossRestart(t *testing.T) {
 
 // A store pointed at a file that doesn't exist behaves as empty, not as an error
 // (first run is not a failure).
-func TestFileStoreMissingFile(t *testing.T) {
-	repo := NewFileStore(filepath.Join(t.TempDir(), "does-not-exist.json"))
+func TestFileMissingFile(t *testing.T) {
+	repo := NewFile(filepath.Join(t.TempDir(), "does-not-exist.json"))
 
 	got, err := repo.List()
 	if err != nil {
@@ -177,13 +177,13 @@ func TestFileStoreMissingFile(t *testing.T) {
 
 // A corrupt file must surface as an error, never a silent empty result — we
 // don't want a malformed file to look like "no posts".
-func TestFileStoreCorruptFile(t *testing.T) {
+func TestFileCorruptFile(t *testing.T) {
 	path := tempFile(t)
 	if err := os.WriteFile(path, []byte("{ not valid json"), 0644); err != nil {
 		t.Fatalf("seeding corrupt file: %v", err)
 	}
 
-	repo := NewFileStore(path)
+	repo := NewFile(path)
 
 	if _, err := repo.List(); err == nil {
 		t.Error("List on a corrupt file returned nil error, want an error")

@@ -10,14 +10,14 @@ import (
 	"time"
 )
 
-type FileStore struct {
+type File struct {
 	path string
 	now  func() time.Time
 	mu   sync.Mutex
 }
 
-func NewFileStore(path string) *FileStore {
-	ps := &FileStore{
+func NewFile(path string) *File {
+	ps := &File{
 		path: path,
 		now:  time.Now,
 	}
@@ -25,7 +25,7 @@ func NewFileStore(path string) *FileStore {
 	return ps
 }
 
-func (fs *FileStore) load() (posts []Post, err error) {
+func (fs *File) load() (posts []Post, err error) {
 	data, err := os.ReadFile(fs.path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -42,7 +42,7 @@ func (fs *FileStore) load() (posts []Post, err error) {
 	return posts, nil
 }
 
-func (fs *FileStore) save(posts []Post) (err error) {
+func (fs *File) save(posts []Post) (err error) {
 	serial, err := json.Marshal(posts)
 	if err != nil {
 		return err
@@ -54,7 +54,7 @@ func (fs *FileStore) save(posts []Post) (err error) {
 	return nil
 }
 
-func (fs *FileStore) Create(body string) (newPost Post, err error) {
+func (fs *File) Create(body string) (newPost Post, err error) {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
@@ -85,7 +85,7 @@ func (fs *FileStore) Create(body string) (newPost Post, err error) {
 	return newPost, nil
 }
 
-func (fs *FileStore) ByID(id int64) (post Post, err error) {
+func (fs *File) ByID(id int64) (post Post, err error) {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 	posts, err := fs.load()
@@ -100,7 +100,7 @@ func (fs *FileStore) ByID(id int64) (post Post, err error) {
 	return Post{}, ErrNotFound
 }
 
-func (fs *FileStore) List() (posts []Post, err error) {
+func (fs *File) List() (posts []Post, err error) {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 	posts, err = fs.load()

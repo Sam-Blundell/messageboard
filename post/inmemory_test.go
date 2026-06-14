@@ -17,8 +17,8 @@ func mustCreate(t *testing.T, repo Repository, body string) Post {
 	return p
 }
 
-// InMemory must satisfy the shared Repository contract (same suite FileStore
-// runs). The white-box tests below additionally cover InMemory internals.
+// InMemory must satisfy the shared Repository contract (same suite the File
+// backend runs). The white-box tests below additionally cover InMemory internals.
 func TestInMemoryContract(t *testing.T) {
 	testRepository(t, func() Repository { return NewInMemory() })
 }
