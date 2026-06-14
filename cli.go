@@ -61,7 +61,10 @@ func (c *cli) handlePost(body string) (newPost post.Post, err error) {
 	if len(body) == 0 {
 		return post.Post{}, errors.New("post requires a body")
 	}
-	newPost = c.store.Create(body)
+	newPost, err = c.store.Create(body)
+	if err != nil {
+		return post.Post{}, err
+	}
 	return newPost, nil
 }
 
@@ -84,7 +87,10 @@ func (c *cli) action(cmd, args string) (result string, quit bool, err error) {
 		result = formatPost(newPost)
 		return result, false, nil
 	case "list":
-		posts := c.store.List()
+		posts, err := c.store.List()
+		if err != nil {
+			return "", false, err
+		}
 		result = formatList(posts)
 		return result, false, nil
 	case "":

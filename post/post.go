@@ -9,7 +9,7 @@ type Post struct {
 }
 
 type Repository interface {
-	Create(body string) Post
+	Create(body string) (Post, error)
 	ByID(id int64) (Post, error)
-	List() []Post
+	List() ([]Post, error)
 }

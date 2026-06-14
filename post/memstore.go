@@ -2,13 +2,10 @@ package post
 
 import (
 	"cmp"
-	"errors"
 	"slices"
 	"sync"
 	"time"
 )
-
-var ErrNotFound = errors.New("post not found")
 
 type MemStore struct {
 	posts     map[int64]Post
@@ -36,17 +33,17 @@ func NewMemStore(opts ...Option) *MemStore {
 	return ps
 }
 
-func (ps *MemStore) Create(body string) Post {
+func (ps *MemStore) Create(body string) (newPost Post, err error) {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
 	ps.idCounter++
-	newPost := Post{
+	newPost = Post{
 		ID:       ps.idCounter,
 		PostTime: ps.now().UTC(),
 		Body:     body,
 	}
 	ps.posts[ps.idCounter] = newPost
-	return newPost
+	return newPost, nil
 }
 
 func (ps *MemStore) ByID(id int64) (Post, error) {
@@ -59,15 +56,15 @@ func (ps *MemStore) ByID(id int64) (Post, error) {
 	return post, nil
 }
 
-func (ps *MemStore) List() []Post {
+func (ps *MemStore) List() (list []Post, err error) {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
-	list := make([]Post, 0, len(ps.posts))
+	list = make([]Post, 0, len(ps.posts))
 	for _, post := range ps.posts {
 		list = append(list, post)
 	}
 	slices.SortFunc(list, func(a, b Post) int {
 		return cmp.Compare(a.ID, b.ID)
 	})
-	return list
+	return list, nil
 }

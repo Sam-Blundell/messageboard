@@ -7,6 +7,22 @@ import (
 	"time"
 )
 
+// create helper
+func mustCreate(t *testing.T, repo Repository, body string) Post {
+	t.Helper()
+	p, err := repo.Create(body)
+	if err != nil {
+		t.Fatalf("Create(%q): %v", body, err)
+	}
+	return p
+}
+
+// MemStore must satisfy the shared Repository contract (same suite FileStore
+// runs). The white-box tests below additionally cover MemStore internals.
+func TestMemStoreContract(t *testing.T) {
+	testRepository(t, func() Repository { return NewMemStore() })
+}
+
 // A freshly constructed store should start empty with the counter at zero, so
 // the very first post becomes ID 1.
 func TestNewMemStoreStartsEmpty(t *testing.T) {
@@ -27,7 +43,7 @@ func TestCreateReturnsCompletePost(t *testing.T) {
 	fixedTimeFunc := func() time.Time { return fixedTime }
 	ps := NewMemStore(WithClock(fixedTimeFunc))
 
-	got := ps.Create("first!")
+	got := mustCreate(t, ps, "first!")
 
 	if got.ID != 1 {
 		t.Errorf("got ID %d, want 1", got.ID)
@@ -45,7 +61,7 @@ func TestCreateReturnsCompletePost(t *testing.T) {
 func TestCreatePersistsReturnedPost(t *testing.T) {
 	ps := NewMemStore()
 
-	got := ps.Create("hello")
+	got := mustCreate(t, ps, "hello")
 
 	saved, ok := ps.posts[got.ID]
 	if !ok {
@@ -72,7 +88,7 @@ func TestCreateIncrementsIDs(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.body, func(t *testing.T) {
-			got := ps.Create(c.body)
+			got := mustCreate(t, ps, c.body)
 			if got.ID != c.wantID {
 				t.Errorf("got ID %d, want %d", got.ID, c.wantID)
 			}
@@ -112,7 +128,7 @@ func TestCreateConcurrencySafety(t *testing.T) {
 func TestListEmptyReturnsEmptySlice(t *testing.T) {
 	ps := NewMemStore()
 
-	got := ps.List()
+	got, _ := ps.List()
 
 	if got == nil {
 		t.Error("got nil, want non-nil empty slice")
@@ -134,7 +150,7 @@ func TestListReturnsPostsSortedByID(t *testing.T) {
 		ps.Create("post")
 	}
 
-	got := ps.List()
+	got, _ := ps.List()
 
 	if len(got) != n {
 		t.Fatalf("got %d posts, want %d", len(got), n)
@@ -154,12 +170,12 @@ func TestListReturnsAllCreatedPosts(t *testing.T) {
 	ps := NewMemStore()
 
 	created := []Post{
-		ps.Create("first"),
-		ps.Create("second"),
-		ps.Create("third"),
+		mustCreate(t, ps, "first"),
+		mustCreate(t, ps, "second"),
+		mustCreate(t, ps, "third"),
 	}
 
-	got := ps.List()
+	got, _ := ps.List()
 
 	if len(got) != len(created) {
 		t.Fatalf("got %d posts, want %d", len(got), len(created))
@@ -189,7 +205,7 @@ func TestListConcurrentAccess(t *testing.T) {
 		}()
 		go func() {
 			defer wg.Done()
-			_ = ps.List()
+			ps.List()
 		}()
 	}
 	wg.Wait()
@@ -209,7 +225,7 @@ func TestListConcurrentAccess(t *testing.T) {
 func TestByIDReturnsCreatedPost(t *testing.T) {
 	ps := NewMemStore()
 
-	created := ps.Create("hello")
+	created := mustCreate(t, ps, "hello")
 
 	got, err := ps.ByID(created.ID)
 	if err != nil {
@@ -227,9 +243,9 @@ func TestByIDReturnsEachPost(t *testing.T) {
 	ps := NewMemStore()
 
 	created := []Post{
-		ps.Create("first"),
-		ps.Create("second"),
-		ps.Create("third"),
+		mustCreate(t, ps, "first"),
+		mustCreate(t, ps, "second"),
+		mustCreate(t, ps, "third"),
 	}
 
 	for _, want := range created {
