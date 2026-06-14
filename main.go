@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	store := post.NewFileStore("./testpersistence")
+	store := post.NewFileStore("./posts.json")
 	c := &cli{
 		store:  store,
 		in:     os.Stdin,
