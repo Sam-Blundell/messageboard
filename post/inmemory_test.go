@@ -26,13 +26,13 @@ func TestInMemoryContract(t *testing.T) {
 // A freshly constructed store should start empty with the counter at zero, so
 // the very first post becomes ID 1.
 func TestNewInMemoryStartsEmpty(t *testing.T) {
-	ps := NewInMemory()
+	m := NewInMemory()
 
-	if ps.idCounter != 0 {
-		t.Errorf("got idCounter %d, want 0", ps.idCounter)
+	if m.idCounter != 0 {
+		t.Errorf("got idCounter %d, want 0", m.idCounter)
 	}
-	if len(ps.posts) != 0 {
-		t.Errorf("got %d posts, want 0", len(ps.posts))
+	if len(m.posts) != 0 {
+		t.Errorf("got %d posts, want 0", len(m.posts))
 	}
 }
 
@@ -41,9 +41,9 @@ func TestNewInMemoryStartsEmpty(t *testing.T) {
 func TestCreateReturnsCompletePost(t *testing.T) {
 	fixedTime := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
 	fixedTimeFunc := func() time.Time { return fixedTime }
-	ps := NewInMemory(WithClock(fixedTimeFunc))
+	m := NewInMemory(WithClock(fixedTimeFunc))
 
-	got := mustCreate(t, ps, "first!")
+	got := mustCreate(t, m, "first!")
 
 	if got.ID != 1 {
 		t.Errorf("got ID %d, want 1", got.ID)
@@ -59,11 +59,11 @@ func TestCreateReturnsCompletePost(t *testing.T) {
 // The Post returned by Create should be the same one saved under its ID.
 // This also shows the comma-ok map read and whole-struct comparison.
 func TestCreatePersistsReturnedPost(t *testing.T) {
-	ps := NewInMemory()
+	m := NewInMemory()
 
-	got := mustCreate(t, ps, "hello")
+	got := mustCreate(t, m, "hello")
 
-	saved, ok := ps.posts[got.ID]
+	saved, ok := m.posts[got.ID]
 	if !ok {
 		t.Fatalf("no post saved under ID %d", got.ID)
 	}
@@ -75,7 +75,7 @@ func TestCreatePersistsReturnedPost(t *testing.T) {
 // Table-driven test: each successive Create bumps the ID by one. The cases run
 // in order against the same store, so the IDs accumulate 1, 2, 3.
 func TestCreateIncrementsIDs(t *testing.T) {
-	ps := NewInMemory()
+	m := NewInMemory()
 
 	cases := []struct {
 		body   string
@@ -88,7 +88,7 @@ func TestCreateIncrementsIDs(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.body, func(t *testing.T) {
-			got := mustCreate(t, ps, c.body)
+			got := mustCreate(t, m, c.body)
 			if got.ID != c.wantID {
 				t.Errorf("got ID %d, want %d", got.ID, c.wantID)
 			}
@@ -103,32 +103,32 @@ func TestCreateIncrementsIDs(t *testing.T) {
 func TestCreateConcurrencySafety(t *testing.T) {
 	const n = 9
 
-	ps := NewInMemory()
+	m := NewInMemory()
 
 	var wg sync.WaitGroup
 	for range n {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			ps.Create("post")
+			m.Create("post")
 		}()
 	}
 	wg.Wait()
 
-	if ps.idCounter != n {
-		t.Errorf("got idCounter %d, want %d", ps.idCounter, n)
+	if m.idCounter != n {
+		t.Errorf("got idCounter %d, want %d", m.idCounter, n)
 	}
-	if len(ps.posts) != n {
-		t.Errorf("got %d posts, want %d", len(ps.posts), n)
+	if len(m.posts) != n {
+		t.Errorf("got %d posts, want %d", len(m.posts), n)
 	}
 }
 
 // An empty store returns an empty, non-nil slice — not nil. Callers can
 // range over and len it without special-casing. It JSON-encodes as [] later.
 func TestListEmptyReturnsEmptySlice(t *testing.T) {
-	ps := NewInMemory()
+	m := NewInMemory()
 
-	got, _ := ps.List()
+	got, _ := m.List()
 
 	if got == nil {
 		t.Error("got nil, want non-nil empty slice")
@@ -143,14 +143,14 @@ func TestListEmptyReturnsEmptySlice(t *testing.T) {
 // runs. We use plenty of posts so a coincidentally-sorted random order is
 // vanishingly unlikely, and assert each ID is strictly greater than the last.
 func TestListReturnsPostsSortedByID(t *testing.T) {
-	ps := NewInMemory()
+	m := NewInMemory()
 
 	const n = 10
 	for range n {
-		ps.Create("post")
+		m.Create("post")
 	}
 
-	got, _ := ps.List()
+	got, _ := m.List()
 
 	if len(got) != n {
 		t.Fatalf("got %d posts, want %d", len(got), n)
@@ -167,15 +167,15 @@ func TestListReturnsPostsSortedByID(t *testing.T) {
 // are created in ascending-ID order and List returns ascending, the created
 // slice and the listed slice should line up index-for-index.
 func TestListReturnsAllCreatedPosts(t *testing.T) {
-	ps := NewInMemory()
+	m := NewInMemory()
 
 	created := []Post{
-		mustCreate(t, ps, "first"),
-		mustCreate(t, ps, "second"),
-		mustCreate(t, ps, "third"),
+		mustCreate(t, m, "first"),
+		mustCreate(t, m, "second"),
+		mustCreate(t, m, "third"),
 	}
 
-	got, _ := ps.List()
+	got, _ := m.List()
 
 	if len(got) != len(created) {
 		t.Fatalf("got %d posts, want %d", len(got), len(created))
@@ -194,27 +194,27 @@ func TestListReturnsAllCreatedPosts(t *testing.T) {
 func TestListConcurrentAccess(t *testing.T) {
 	const n = 50
 
-	ps := NewInMemory()
+	m := NewInMemory()
 
 	var wg sync.WaitGroup
 	for range n {
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
-			ps.Create("post")
+			m.Create("post")
 		}()
 		go func() {
 			defer wg.Done()
-			ps.List()
+			m.List()
 		}()
 	}
 	wg.Wait()
 
-	if ps.idCounter != n {
-		t.Errorf("got idCounter %d, want %d", ps.idCounter, n)
+	if m.idCounter != n {
+		t.Errorf("got idCounter %d, want %d", m.idCounter, n)
 	}
-	if len(ps.posts) != n {
-		t.Errorf("got %d posts, want %d", len(ps.posts), n)
+	if len(m.posts) != n {
+		t.Errorf("got %d posts, want %d", len(m.posts), n)
 	}
 }
 
@@ -223,11 +223,11 @@ func TestListConcurrentAccess(t *testing.T) {
 // so the test says "look up the post I just made" and won't break if setup
 // changes.
 func TestByIDReturnsCreatedPost(t *testing.T) {
-	ps := NewInMemory()
+	m := NewInMemory()
 
-	created := mustCreate(t, ps, "hello")
+	created := mustCreate(t, m, "hello")
 
-	got, err := ps.ByID(created.ID)
+	got, err := m.ByID(created.ID)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -240,16 +240,16 @@ func TestByIDReturnsCreatedPost(t *testing.T) {
 // the first, not an arbitrary match. We loop over every post we created and
 // confirm each round-trips.
 func TestByIDReturnsEachPost(t *testing.T) {
-	ps := NewInMemory()
+	m := NewInMemory()
 
 	created := []Post{
-		mustCreate(t, ps, "first"),
-		mustCreate(t, ps, "second"),
-		mustCreate(t, ps, "third"),
+		mustCreate(t, m, "first"),
+		mustCreate(t, m, "second"),
+		mustCreate(t, m, "third"),
 	}
 
 	for _, want := range created {
-		got, err := ps.ByID(want.ID)
+		got, err := m.ByID(want.ID)
 		if err != nil {
 			t.Fatalf("ByID(%d) unexpected error: %v", want.ID, err)
 		}
@@ -275,12 +275,12 @@ func TestByIDNotFound(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			ps := NewInMemory()
+			m := NewInMemory()
 			for range c.seed {
-				ps.Create("post")
+				m.Create("post")
 			}
 
-			got, err := ps.ByID(c.queryID)
+			got, err := m.ByID(c.queryID)
 			if !errors.Is(err, ErrNotFound) {
 				t.Errorf("got error %v, want ErrNotFound", err)
 			}
@@ -301,26 +301,26 @@ func TestByIDNotFound(t *testing.T) {
 func TestByIDConcurrentAccess(t *testing.T) {
 	const n = 50
 
-	ps := NewInMemory()
+	m := NewInMemory()
 
 	var wg sync.WaitGroup
 	for range n {
 		wg.Add(2) // one writer and one reader per iteration
 		go func() {
 			defer wg.Done()
-			ps.Create("post")
+			m.Create("post")
 		}()
 		go func() {
 			defer wg.Done()
-			_, _ = ps.ByID(1)
+			_, _ = m.ByID(1)
 		}()
 	}
 	wg.Wait()
 
-	if ps.idCounter != n {
-		t.Errorf("got idCounter %d, want %d", ps.idCounter, n)
+	if m.idCounter != n {
+		t.Errorf("got idCounter %d, want %d", m.idCounter, n)
 	}
-	if len(ps.posts) != n {
-		t.Errorf("got %d posts, want %d", len(ps.posts), n)
+	if len(m.posts) != n {
+		t.Errorf("got %d posts, want %d", len(m.posts), n)
 	}
 }

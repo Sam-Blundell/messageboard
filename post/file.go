@@ -17,16 +17,16 @@ type File struct {
 }
 
 func NewFile(path string) *File {
-	ps := &File{
+	f := &File{
 		path: path,
 		now:  time.Now,
 	}
 
-	return ps
+	return f
 }
 
-func (fs *File) load() (posts []Post, err error) {
-	data, err := os.ReadFile(fs.path)
+func (f *File) load() (posts []Post, err error) {
+	data, err := os.ReadFile(f.path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return []Post{}, nil
@@ -42,23 +42,23 @@ func (fs *File) load() (posts []Post, err error) {
 	return posts, nil
 }
 
-func (fs *File) save(posts []Post) (err error) {
+func (f *File) save(posts []Post) (err error) {
 	serial, err := json.Marshal(posts)
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(fs.path, serial, 0644)
+	err = os.WriteFile(f.path, serial, 0644)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (fs *File) Create(body string) (newPost Post, err error) {
-	fs.mu.Lock()
-	defer fs.mu.Unlock()
+func (f *File) Create(body string) (newPost Post, err error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 
-	posts, err := fs.load()
+	posts, err := f.load()
 	if err != nil {
 		return Post{}, err
 	}
@@ -73,22 +73,22 @@ func (fs *File) Create(body string) (newPost Post, err error) {
 
 	newPost = Post{
 		ID:       newID,
-		PostTime: fs.now().UTC(),
+		PostTime: f.now().UTC(),
 		Body:     body,
 	}
 
 	posts = append(posts, newPost)
-	err = fs.save(posts)
+	err = f.save(posts)
 	if err != nil {
 		return Post{}, err
 	}
 	return newPost, nil
 }
 
-func (fs *File) ByID(id int64) (post Post, err error) {
-	fs.mu.Lock()
-	defer fs.mu.Unlock()
-	posts, err := fs.load()
+func (f *File) ByID(id int64) (post Post, err error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	posts, err := f.load()
 	if err != nil {
 		return Post{}, err
 	}
@@ -100,10 +100,10 @@ func (fs *File) ByID(id int64) (post Post, err error) {
 	return Post{}, ErrNotFound
 }
 
-func (fs *File) List() (posts []Post, err error) {
-	fs.mu.Lock()
-	defer fs.mu.Unlock()
-	posts, err = fs.load()
+func (f *File) List() (posts []Post, err error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	posts, err = f.load()
 	if err != nil {
 		return nil, err
 	}

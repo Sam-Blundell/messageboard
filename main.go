@@ -48,9 +48,9 @@ func main() {
 	// 	fmt.Println(testRow)
 	// }
 
-	store := post.NewFile("./posts.json")
+	posts := post.NewFile("./posts.json")
 	c := &cli{
-		store:  store,
+		posts:  posts,
 		in:     os.Stdin,
 		out:    os.Stdout,
 		errOut: os.Stderr,

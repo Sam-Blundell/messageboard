@@ -12,7 +12,7 @@ import (
 )
 
 type cli struct {
-	store  post.Repository
+	posts  post.Repository
 	in     io.Reader
 	out    io.Writer
 	errOut io.Writer
@@ -50,7 +50,7 @@ func (c *cli) handleGet(args string) (fetched post.Post, err error) {
 	if err != nil {
 		return post.Post{}, fmt.Errorf("parsing argument: %w", err)
 	}
-	fetched, err = c.store.ByID(postID)
+	fetched, err = c.posts.ByID(postID)
 	if err != nil {
 		return post.Post{}, fmt.Errorf("can't get post %d: %w", postID, err)
 	}
@@ -61,7 +61,7 @@ func (c *cli) handlePost(body string) (newPost post.Post, err error) {
 	if len(body) == 0 {
 		return post.Post{}, errors.New("post requires a body")
 	}
-	newPost, err = c.store.Create(body)
+	newPost, err = c.posts.Create(body)
 	if err != nil {
 		return post.Post{}, err
 	}
@@ -87,7 +87,7 @@ func (c *cli) action(cmd, args string) (result string, quit bool, err error) {
 		result = formatPost(newPost)
 		return result, false, nil
 	case "list":
-		posts, err := c.store.List()
+		posts, err := c.posts.List()
 		if err != nil {
 			return "", false, err
 		}

@@ -17,50 +17,50 @@ type InMemory struct {
 type Option func(*InMemory)
 
 func WithClock(now func() time.Time) Option {
-	return func(ps *InMemory) { ps.now = now }
+	return func(m *InMemory) { m.now = now }
 }
 
 func NewInMemory(opts ...Option) *InMemory {
-	ps := &InMemory{
+	m := &InMemory{
 		posts: make(map[int64]Post),
 		now:   time.Now,
 	}
 
 	for _, opt := range opts {
-		opt(ps)
+		opt(m)
 	}
 
-	return ps
+	return m
 }
 
-func (ps *InMemory) Create(body string) (newPost Post, err error) {
-	ps.mu.Lock()
-	defer ps.mu.Unlock()
-	ps.idCounter++
+func (m *InMemory) Create(body string) (newPost Post, err error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.idCounter++
 	newPost = Post{
-		ID:       ps.idCounter,
-		PostTime: ps.now().UTC(),
+		ID:       m.idCounter,
+		PostTime: m.now().UTC(),
 		Body:     body,
 	}
-	ps.posts[ps.idCounter] = newPost
+	m.posts[m.idCounter] = newPost
 	return newPost, nil
 }
 
-func (ps *InMemory) ByID(id int64) (Post, error) {
-	ps.mu.Lock()
-	defer ps.mu.Unlock()
-	post, ok := ps.posts[id]
+func (m *InMemory) ByID(id int64) (Post, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	post, ok := m.posts[id]
 	if !ok {
 		return Post{}, ErrNotFound
 	}
 	return post, nil
 }
 
-func (ps *InMemory) List() (list []Post, err error) {
-	ps.mu.Lock()
-	defer ps.mu.Unlock()
-	list = make([]Post, 0, len(ps.posts))
-	for _, post := range ps.posts {
+func (m *InMemory) List() (list []Post, err error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	list = make([]Post, 0, len(m.posts))
+	for _, post := range m.posts {
 		list = append(list, post)
 	}
 	slices.SortFunc(list, func(a, b Post) int {
