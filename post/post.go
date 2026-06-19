@@ -7,9 +7,3 @@ type Post struct {
 	PostTime time.Time
 	Body     string
 }
-
-type Repository interface {
-	Create(body string) (Post, error)
-	ByID(id int64) (Post, error)
-	List() ([]Post, error)
-}

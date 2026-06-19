@@ -50,7 +50,7 @@ func TestRun(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.input, func(t *testing.T) {
-			posts := post.NewInMemory(post.WithClock(func() time.Time { return fixed }))
+			posts := &fakeStore{now: fixed}
 			in := strings.NewReader(c.input)
 			var out, errOut bytes.Buffer
 
@@ -89,7 +89,7 @@ func TestRun(t *testing.T) {
 // beyond the initial prompt should reach out. An exact match (not a substring)
 // is what proves "nothing else happened".
 func TestRunQuit(t *testing.T) {
-	posts := post.NewInMemory()
+	posts := &fakeStore{}
 	in := strings.NewReader("quit\npost should-not-run")
 	var out, errOut bytes.Buffer
 
@@ -102,4 +102,33 @@ func TestRunQuit(t *testing.T) {
 	if errOut.Len() != 0 {
 		t.Errorf("errOut: want empty, got %q", errOut.String())
 	}
+}
+
+// fakeStore is an in-memory test double satisfying postData. It assigns
+// incrementing IDs from 1 and stamps every post with a fixed clock, so the
+// cli's formatted output is deterministic without touching a real database.
+type fakeStore struct {
+	posts  []post.Post
+	nextID int64
+	now    time.Time
+}
+
+func (f *fakeStore) Create(body string) (post.Post, error) {
+	f.nextID++
+	p := post.Post{ID: f.nextID, PostTime: f.now, Body: body}
+	f.posts = append(f.posts, p)
+	return p, nil
+}
+
+func (f *fakeStore) ByID(id int64) (post.Post, error) {
+	for _, p := range f.posts {
+		if p.ID == id {
+			return p, nil
+		}
+	}
+	return post.Post{}, post.ErrNotFound
+}
+
+func (f *fakeStore) List() ([]post.Post, error) {
+	return f.posts, nil
 }

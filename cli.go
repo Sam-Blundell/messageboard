@@ -11,8 +11,18 @@ import (
 	"github.com/Sam-Blundell/messageboard/post"
 )
 
+// postData is the slice of post storage the cli actually uses. Declared here,
+// at the consumer, so the cli depends only on the behaviour it needs — any
+// implementation (the SQLite-backed *post.Repository, or a test fake) satisfies
+// it.
+type postData interface {
+	Create(body string) (post.Post, error)
+	ByID(id int64) (post.Post, error)
+	List() ([]post.Post, error)
+}
+
 type cli struct {
-	posts  post.Repository
+	posts  postData
 	in     io.Reader
 	out    io.Writer
 	errOut io.Writer
