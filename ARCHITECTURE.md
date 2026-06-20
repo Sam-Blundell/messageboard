@@ -93,6 +93,22 @@ All faces are thin adapters over the **same shared handlers**.
   - The in-process _user_ CLI is partly scaffolding and may fade once HTTP/web/TUI
     exist. The in-process _admin_ CLI is permanent (migrations can't go over HTTP).
 
+- **CLI command interface — multi-entity, REPL and one-shot share one core.**
+  Entity-first noun-verb (`board create hiking`), one verb vocabulary across all
+  entities. A quote-aware tokenizer turns a REPL line into `[]string`; a pure
+  `execute(tokens) (output, error)` core dispatches entity → action →
+  transport-handler. Both faces share `execute`: the **REPL** loops over it; the
+  **one-shot** form (`messageboard board create hiking`, taken when `len(os.Args) >
+  1`) calls it once and exits with a status code (stdout/stderr, non-zero on
+  failure). `quit` is loop-control — a guard in each driver, never reaching
+  `execute` (one-shot no-ops it); `help` is a real command inside `execute`. Flags
+  use the stdlib `flag` package, per-command inside the handler (`ContinueOnError`,
+  so a typo can't `os.Exit` the REPL), added only when a command needs options
+  (e.g. `board create --description … --nsfw`). Consistency note: `execute` is
+  shared across the two _cli modes_, not the cross-transport hub — these handlers
+  are transport-level (they call repos directly), and the one-shot user CLI is the
+  "may fade" in-process user face, not the permanent admin one.
+
 - **Service/handler layer earns its place with orchestration.** A dedicated service
   layer is justified when an operation spans multiple repositories or needs
   validation/orchestration (i.e. once boards/threads arrive). Until then, a thin
@@ -143,6 +159,10 @@ All faces are thin adapters over the **same shared handlers**.
 - **Persistence:** ✅ done. Progressed in-memory → file → SQLite, then committed to
   SQLite alone (in-memory/file dropped). The `storage` infra package, the
   `post.SQLite` adapter, and the consumer-side `postRepository` port are in place.
+- **CLI command system (next):** rework the single-entity REPL into the entity-first
+  multi-entity command system (see Key decisions), with a shared REPL/one-shot
+  `execute`. Unlocks board/thread commands and terminal one-shot use. Detailed build
+  order is tracked outside this doc.
 - **Domain:** add boards (and threads). New domain package(s) + likely the
   service/handler layer for cross-repository orchestration.
 - **Transports:** Bubbletea TUI (a _second transport_ — motivates extracting the CLI

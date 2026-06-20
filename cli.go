@@ -15,6 +15,7 @@ import (
 type boardRepository interface {
 	Create(name string) (board.Board, error)
 	List() ([]board.Board, error)
+	Delete(id int64) error
 }
 
 // postRepository is the post-persistence port the cli depends on. It's declared
