@@ -54,13 +54,23 @@ All faces are thin adapters over the **same shared handlers**.
   (the shared core API) vs _transport_ adapters (e.g. a CLI's `handleGet`). The
   latter call the former.
 
-- **Repository pattern for persistence.** Storage lives behind interfaces; swap
-  in-memory → file → DB by adding adapter implementations. The interface is
-  introduced only when a _second_ backend exists, not preemptively.
+- **Repository pattern for persistence — now SQL-only (2026-06-20).** Originally
+  planned as a swappable ring (in-memory → file → DB). That collapsed: the
+  in-memory and file backends served their learning purpose and were dropped;
+  SQLite is the single backend (git history holds the rest). A persistence _port_
+  still exists with one implementation, but it's declared at the **consumer** (the
+  cli) as the seam it needs for testing — Go's "accept interfaces, define them at
+  the consumer" — _not_ a producer-side abstraction for swapping backends. So the
+  old "defer the interface until a second backend" rule gave way to "define the
+  small interface the consumer needs": a different justification, not a reversal.
 
-- **"Store" vs "Repository" naming.** `Store` = a concrete persistence implementation
-  (the adapter). `Repository` = the interface (the port the domain depends on). Kept
-  deliberately distinct.
+- **Adapter vs port naming (resolved 2026-06-20).** The concrete adapter is named
+  for its mechanism — `post.SQLite` — and is constructed only at the composition
+  root, the one place allowed to know the backend. The **port** is `postRepository`,
+  an unexported interface declared at the consumer (`main`). "Store" as a type name
+  was deliberately retired. Entity-prefixed so `threadRepository` / `boardRepository`
+  can sit beside it. (Reasoning settled: mechanism-naming a concrete is fine because
+  it's an _adapter_, only referenced where the backend is chosen — not a leak.)
 
 - **The JSON API is a first-class, versioned contract** (`/api/v1/...`). It is stable
   so _any_ client — the remote CLI, a future SPA, third parties — can build against
@@ -89,27 +99,40 @@ All faces are thin adapters over the **same shared handlers**.
   transport over a single repository is honest; a pass-through service would be
   ceremony.
 
-- **Testability seams:** clock injection via functional options (deterministic time
-  in tests); injected `io.Reader`/`io.Writer` on transports (drive them with scripted
-  input + captured buffers). Dependencies injected from `main` (the composition
-  root); no globals.
+- **Testability seams:** clock injection via the adapter's unexported `now func()
+  time.Time` (set white-box in package tests — the functional-options version was
+  dropped when persistence went SQL-only); a `fakeStore` implementing the
+  `postRepository` port for transport tests (no DB); injected `io.Reader`/`io.Writer`
+  on transports (scripted input + captured buffers); a `:memory:` SQLite +
+  `storage.Migrate` for the adapter's own contract suite. Dependencies injected from
+  `main` (the composition root); no globals.
 
 - **Defer abstractions until the second use case** — interfaces, packages, and the
   service layer appear when there's a concrete reason, not on spec.
 
 ---
 
-## Current state — as of 2026-06-09
+## Current state — as of 2026-06-20
 
-- **`post` package:** `Post` entity, `Store` (in-memory map + counter + mutex,
-  `Create`/`ByID`/`List`), `ErrNotFound`. Clock injection via `WithClock` (functional
-  options). Full tests incl. `-race` and a deterministic clock test.
-- **CLI REPL** (root `package main`): `cli` struct (`store`/`in`/`out`/`errOut` +
-  methods), `parseInput`/`formatPost`/`formatList` as free functions. Commands:
-  `post`, `get`, `list`, `quit`, plus empty/unknown handling. Errors routed to
-  `errOut`.
-- **No application handler layer yet** — the CLI currently calls the `Store`
-  (repository) directly. The handler hub is still to be built.
+- **`storage` package:** DB infrastructure. `Open(path)` (open + ping),
+  `Migrate(conn, []Migration)` (runs in order, names the failing migration),
+  `Migration` type, `Migrations` (the central ordered schema list for all entities),
+  and the `modernc.org/sqlite` driver blank-import (transitive — importing `storage`
+  registers the driver). Connections are created here and injected into adapters.
+  Tested (`-race`): happy path, idempotency of the real schema, fail-fast,
+  named-failure, empty list.
+- **`post` package:** `Post` entity, `ErrNotFound`, and `SQLite` — the SQLite-backed
+  adapter (`NewSQLite(db *sql.DB)`, `Create`/`ByID`/`List`). Timestamps stored as Unix
+  epoch seconds; a `scanPost` helper round-trips them back to UTC `time.Time`.
+  Unexported `now` field for white-box clock tests. A black-box contract suite runs
+  against a fresh `:memory:` DB per subtest, plus a timestamp round-trip test.
+- **CLI REPL** (root `package main`): `cli` struct (`posts`/`in`/`out`/`errOut`), where
+  `posts` is the consumer-side `postRepository` port; `parseInput`/`formatPost`/
+  `formatList` free functions. Commands `post`/`get`/`list`/`quit` + empty/unknown.
+  Errors routed to `errOut`. Tested with a `fakeStore` (no DB).
+- **No application handler layer yet** — the CLI calls the repository port directly.
+  The handler hub is still to be built (justified once boards/threads bring
+  cross-repository orchestration).
 - **Tooling:** pre-push hook (`gofmt` + `go vet` + `go test -race`); Delve for
   debugging.
 
@@ -117,9 +140,9 @@ All faces are thin adapters over the **same shared handlers**.
 
 ## Roadmap — rings to fill (order not committed)
 
-- **Persistence:** in-memory → file → database. Introduces the `Repository`
-  interface + adapter package(s) (e.g. `postgres`). Transports/handlers depend on
-  the interface.
+- **Persistence:** ✅ done. Progressed in-memory → file → SQLite, then committed to
+  SQLite alone (in-memory/file dropped). The `storage` infra package, the
+  `post.SQLite` adapter, and the consumer-side `postRepository` port are in place.
 - **Domain:** add boards (and threads). New domain package(s) + likely the
   service/handler layer for cross-repository orchestration.
 - **Transports:** Bubbletea TUI (a _second transport_ — motivates extracting the CLI
