@@ -9,7 +9,7 @@ import (
 )
 
 // mustCreate creates a post and fails the test on error.
-func mustCreate(t *testing.T, repo *Repository, body string) Post {
+func mustCreate(t *testing.T, repo *SQLite, body string) Post {
 	t.Helper()
 	p, err := repo.Create(body)
 	if err != nil {
@@ -36,9 +36,9 @@ func newTestDB(t *testing.T) *sql.DB {
 	return conn
 }
 
-// testRepository runs the behavioural contract the post Repository must satisfy.
-// newRepo builds a fresh, empty repository for each subtest.
-func testRepository(t *testing.T, newRepo func() *Repository) {
+// testRepository runs the behavioural contract every post backend must satisfy.
+// newRepo builds a fresh, empty adapter for each subtest.
+func testRepository(t *testing.T, newRepo func() *SQLite) {
 	t.Run("empty repo lists nothing", func(t *testing.T) {
 		got, err := newRepo().List()
 		if err != nil {
@@ -121,10 +121,10 @@ func testRepository(t *testing.T, newRepo func() *Repository) {
 	})
 }
 
-// The SQLite-backed Repository must satisfy the behavioural contract.
-func TestRepositoryContract(t *testing.T) {
-	testRepository(t, func() *Repository {
+// The SQLite adapter must satisfy the behavioural contract.
+func TestSQLiteContract(t *testing.T) {
+	testRepository(t, func() *SQLite {
 		conn := newTestDB(t)
-		return NewRepository(conn)
+		return NewSQLite(conn)
 	})
 }

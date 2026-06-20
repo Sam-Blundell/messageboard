@@ -11,18 +11,19 @@ import (
 	"github.com/Sam-Blundell/messageboard/post"
 )
 
-// postData is the slice of post storage the cli actually uses. Declared here,
-// at the consumer, so the cli depends only on the behaviour it needs — any
-// implementation (the SQLite-backed *post.Repository, or a test fake) satisfies
-// it.
-type postData interface {
+// postRepository is the post-persistence port the cli depends on. It's declared
+// here, at the consumer, so the cli needs only the behaviour it uses — the
+// SQLite adapter (*post.SQLite) and test fakes both satisfy it, and neither the
+// storage mechanism nor the on-disk shape leaks past this boundary. Threads and
+// boards will get their own ports alongside this one.
+type postRepository interface {
 	Create(body string) (post.Post, error)
 	ByID(id int64) (post.Post, error)
 	List() ([]post.Post, error)
 }
 
 type cli struct {
-	posts  postData
+	posts  postRepository
 	in     io.Reader
 	out    io.Writer
 	errOut io.Writer

@@ -7,24 +7,28 @@ import (
 	"time"
 )
 
-type Repository struct {
+// SQLite is the SQLite-backed adapter for post persistence. It satisfies the
+// consumer-defined Repository port (declared in package main); callers only see
+// that interface and never this concrete type — except at the composition root,
+// which is the one place allowed to choose the backend.
+type SQLite struct {
 	db  *sql.DB
 	now func() time.Time
 }
 
-func NewRepository(db *sql.DB) *Repository {
-	repository := &Repository{
+func NewSQLite(db *sql.DB) *SQLite {
+	sqlite := &SQLite{
 		db:  db,
 		now: time.Now,
 	}
 
-	return repository
+	return sqlite
 }
 
-func (r *Repository) Create(body string) (newPost Post, err error) {
-	unixTimestamp := r.now().UTC().Unix()
+func (s *SQLite) Create(body string) (newPost Post, err error) {
+	unixTimestamp := s.now().UTC().Unix()
 
-	result, err := r.db.Exec("INSERT INTO post (body, created_at) VALUES (?, ?)", body, unixTimestamp)
+	result, err := s.db.Exec("INSERT INTO post (body, created_at) VALUES (?, ?)", body, unixTimestamp)
 	if err != nil {
 		return Post{}, fmt.Errorf("error creating post: %w", err)
 	}
@@ -63,8 +67,8 @@ func scanPost(s scanner) (Post, error) {
 	return p, nil
 }
 
-func (r *Repository) ByID(id int64) (Post, error) {
-	row := r.db.QueryRow("SELECT id, body, created_at FROM post WHERE id = ?", id)
+func (s *SQLite) ByID(id int64) (Post, error) {
+	row := s.db.QueryRow("SELECT id, body, created_at FROM post WHERE id = ?", id)
 	p, err := scanPost(row)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
@@ -75,8 +79,8 @@ func (r *Repository) ByID(id int64) (Post, error) {
 	return p, err
 }
 
-func (r *Repository) List() ([]Post, error) {
-	rows, err := r.db.Query("SELECT id, body, created_at FROM post ORDER BY id")
+func (s *SQLite) List() ([]Post, error) {
+	rows, err := s.db.Query("SELECT id, body, created_at FROM post ORDER BY id")
 	if err != nil {
 		return []Post{}, err
 	}

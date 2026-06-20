@@ -19,7 +19,7 @@ func main() {
 		log.Fatalf("migration error: %v", err)
 	}
 
-	posts := post.NewRepository(db)
+	posts := post.NewSQLite(db)
 	c := &cli{
 		posts:  posts,
 		in:     os.Stdin,
