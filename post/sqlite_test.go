@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/Sam-Blundell/messageboard/storage"
 )
@@ -127,4 +128,38 @@ func TestSQLiteContract(t *testing.T) {
 		conn := newTestDB(t)
 		return NewSQLite(conn)
 	})
+}
+
+// The adapter stores timestamps as Unix *seconds*, so the round trip through the
+// database is lossy below a second. With an injected sub-second clock, both the
+// post Create returns and the post ByID reads back must be the same instant,
+// truncated to the second and in UTC. The whole-struct comparison at the end
+// pins the exact equality the contract suite's == comparison silently relies on.
+func TestSQLiteTimestampRoundTrip(t *testing.T) {
+	conn := newTestDB(t)
+	repo := NewSQLite(conn)
+
+	// A clock with a deliberate sub-second component, to prove what survives.
+	fixed := time.Date(2026, 3, 4, 5, 6, 7, 123_456_789, time.UTC)
+	repo.now = func() time.Time { return fixed }
+	want := fixed.Truncate(time.Second) // 2026-03-04 05:06:07 UTC, no sub-seconds
+
+	created, err := repo.Create("hello")
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if !created.PostTime.Equal(want) {
+		t.Errorf("Create PostTime = %v, want %v (truncated to the second)", created.PostTime, want)
+	}
+	if loc := created.PostTime.Location(); loc != time.UTC {
+		t.Errorf("Create PostTime location = %v, want UTC", loc)
+	}
+
+	got, err := repo.ByID(created.ID)
+	if err != nil {
+		t.Fatalf("ByID(%d): %v", created.ID, err)
+	}
+	if got != created {
+		t.Errorf("round trip changed the post: got %+v, want %+v", got, created)
+	}
 }
