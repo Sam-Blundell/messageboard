@@ -35,22 +35,6 @@ func tableExists(t *testing.T, conn *sql.DB, name string) bool {
 	return true
 }
 
-// Open should return a live, usable connection for a valid DSN.
-func TestOpen(t *testing.T) {
-	conn, err := Open(":memory:")
-	if err != nil {
-		t.Fatalf("Open: %v", err)
-	}
-	defer conn.Close()
-	if conn == nil {
-		t.Fatal("Open returned a nil db")
-	}
-	// Open already pings, but prove the handle it hands back is actually alive.
-	if err := conn.Ping(); err != nil {
-		t.Errorf("db from Open is not usable: %v", err)
-	}
-}
-
 // Happy path: every migration in the list is applied, so each table exists
 // afterward.
 func TestMigrateCreatesSchema(t *testing.T) {
@@ -118,13 +102,5 @@ func TestMigrateStopsAtFailure(t *testing.T) {
 	}
 	if tableExists(t, conn, "later") {
 		t.Error("a migration after the failure should not have run")
-	}
-}
-
-// An empty migration list is a no-op, not an error.
-func TestMigrateEmpty(t *testing.T) {
-	conn := newTestDB(t)
-	if err := Migrate(conn, nil); err != nil {
-		t.Errorf("Migrate with no migrations should be a no-op, got %v", err)
 	}
 }

@@ -13,6 +13,7 @@ type Migration struct {
 }
 
 var Migrations = []Migration{
+	{name: "create board table", stmt: "CREATE TABLE IF NOT EXISTS board (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE)"},
 	{name: "create post table", stmt: "CREATE TABLE IF NOT EXISTS post (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, body TEXT, created_at INTEGER)"},
 }
 

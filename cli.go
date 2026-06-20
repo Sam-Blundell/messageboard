@@ -8,8 +8,14 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Sam-Blundell/messageboard/board"
 	"github.com/Sam-Blundell/messageboard/post"
 )
+
+type boardRepository interface {
+	Create(name string) (board.Board, error)
+	List() ([]board.Board, error)
+}
 
 // postRepository is the post-persistence port the cli depends on. It's declared
 // here, at the consumer, so the cli needs only the behaviour it uses — the
@@ -23,6 +29,7 @@ type postRepository interface {
 }
 
 type cli struct {
+	boards boardRepository
 	posts  postRepository
 	in     io.Reader
 	out    io.Writer

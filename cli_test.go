@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -104,16 +105,40 @@ func TestRunQuit(t *testing.T) {
 	}
 }
 
+// A failure from the store (not a user error) must still route to errOut and
+// not leak into out. We force Create to fail and check the error surfaces.
+func TestRunStoreError(t *testing.T) {
+	posts := &fakeStore{createErr: errors.New("db exploded")}
+	in := strings.NewReader("post hello")
+	var out, errOut bytes.Buffer
+
+	app := &cli{posts: posts, in: in, out: &out, errOut: &errOut}
+	app.run()
+
+	if !strings.Contains(errOut.String(), "db exploded") {
+		t.Errorf("store error should reach errOut; got %q", errOut.String())
+	}
+	if strings.Contains(out.String(), "db exploded") {
+		t.Errorf("store error leaked into out: %q", out.String())
+	}
+}
+
 // fakeStore is an in-memory test double satisfying postData. It assigns
 // incrementing IDs from 1 and stamps every post with a fixed clock, so the
 // cli's formatted output is deterministic without touching a real database.
+// When createErr is set, Create returns it instead, to exercise store-failure
+// handling.
 type fakeStore struct {
-	posts  []post.Post
-	nextID int64
-	now    time.Time
+	posts     []post.Post
+	nextID    int64
+	now       time.Time
+	createErr error
 }
 
 func (f *fakeStore) Create(body string) (post.Post, error) {
+	if f.createErr != nil {
+		return post.Post{}, f.createErr
+	}
 	f.nextID++
 	p := post.Post{ID: f.nextID, PostTime: f.now, Body: body}
 	f.posts = append(f.posts, p)

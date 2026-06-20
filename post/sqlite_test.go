@@ -66,14 +66,17 @@ func testRepository(t *testing.T, newRepo func() *SQLite) {
 		}
 	})
 
-	t.Run("create assigns incrementing IDs", func(t *testing.T) {
+	t.Run("create assigns increasing IDs", func(t *testing.T) {
+		// IDs must strictly increase; gaps are allowed (gaplessness is an
+		// AUTOINCREMENT incidental, not part of the contract).
 		repo := newRepo()
-		for i, body := range []string{"a", "b", "c"} {
+		var prev int64
+		for _, body := range []string{"a", "b", "c"} {
 			got := mustCreate(t, repo, body)
-			wantID := int64(i + 1)
-			if got.ID != wantID {
-				t.Errorf("post %d: got ID %d, want %d", i, got.ID, wantID)
+			if got.ID <= prev {
+				t.Errorf("got ID %d, want greater than previous %d", got.ID, prev)
 			}
+			prev = got.ID
 		}
 	})
 
