@@ -1,7 +1,7 @@
 package main
 
 import (
-	"log"
+	"fmt"
 	"os"
 
 	"github.com/Sam-Blundell/messageboard/board"
@@ -9,15 +9,15 @@ import (
 	"github.com/Sam-Blundell/messageboard/storage"
 )
 
-func main() {
+func run() error {
 	db, err := storage.Open("database")
 	if err != nil {
-		log.Fatalf("db creation error: %v", err)
+		return fmt.Errorf("opening database: %w", err)
 	}
 	defer db.Close()
 	err = storage.Migrate(db, storage.Migrations)
 	if err != nil {
-		log.Fatalf("migration error: %v", err)
+		return fmt.Errorf("migrating database: %w", err)
 	}
 
 	posts := post.NewSQLite(db)
@@ -28,6 +28,18 @@ func main() {
 		boards: &boardCommands{boards: boards},
 	}
 
+	if len(os.Args) > 1 {
+		if isQuit(os.Args[1:]) {
+			return nil
+		}
+		result, err := cmds.execute(os.Args[1:])
+		if err != nil {
+			return err
+		}
+		fmt.Fprint(os.Stdout, result)
+		return nil
+	}
+
 	r := &repl{
 		commands: cmds,
 		in:       os.Stdin,
@@ -35,4 +47,13 @@ func main() {
 		errOut:   os.Stderr,
 	}
 	r.run()
+	return nil
+}
+
+func main() {
+	err := run()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 }
