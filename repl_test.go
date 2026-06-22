@@ -73,7 +73,7 @@ func TestRun(t *testing.T) {
 			var out, errOut bytes.Buffer
 
 			app := newTestRepl(posts, in, &out, &errOut)
-			app.run()
+			app.loop()
 
 			if !strings.Contains(out.String(), c.want) {
 				t.Errorf("out: got %q, want substring %q", out.String(), c.want)
@@ -106,7 +106,7 @@ func TestRunQuit(t *testing.T) {
 	var out, errOut bytes.Buffer
 
 	app := newTestRepl(posts, in, &out, &errOut)
-	app.run()
+	app.loop()
 
 	if out.String() != ">" {
 		t.Errorf("quit should stop the loop before later input; got out %q, want %q", out.String(), ">")
@@ -124,7 +124,7 @@ func TestRunStoreError(t *testing.T) {
 	var out, errOut bytes.Buffer
 
 	app := newTestRepl(posts, in, &out, &errOut)
-	app.run()
+	app.loop()
 
 	if !strings.Contains(errOut.String(), "db exploded") {
 		t.Errorf("store error should reach errOut; got %q", errOut.String())

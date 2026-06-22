@@ -28,7 +28,7 @@ func isQuit(tokens []string) bool {
 	return strings.ToLower(tokens[0]) == "quit"
 }
 
-func (r *repl) run() {
+func (r *repl) loop() {
 	scanner := bufio.NewScanner(r.in)
 
 	fmt.Fprint(r.out, ">")

@@ -46,7 +46,7 @@ func run() error {
 		out:      os.Stdout,
 		errOut:   os.Stderr,
 	}
-	r.run()
+	r.loop()
 	return nil
 }
 
