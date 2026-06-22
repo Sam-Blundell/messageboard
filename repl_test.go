@@ -3,12 +3,27 @@ package main
 import (
 	"bytes"
 	"errors"
+	"io"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/Sam-Blundell/messageboard/post"
 )
+
+// newTestRepl wires a repl to a fake post store so the loop can be driven with
+// scripted input. The board side is present but unexercised here.
+func newTestRepl(posts postRepository, in io.Reader, out, errOut io.Writer) *repl {
+	return &repl{
+		commands: &commands{
+			posts:  &postCommands{posts: posts},
+			boards: &boardCommands{},
+		},
+		in:     in,
+		out:    out,
+		errOut: errOut,
+	}
+}
 
 func TestRun(t *testing.T) {
 	// A fixed clock so any created post has a deterministic timestamp we can
@@ -21,31 +36,33 @@ func TestRun(t *testing.T) {
 		want       string // substring expected in out
 		wantErrOut string // substring expected in errOut; "" means errOut must be empty
 	}{
-		// No real command — just the prompt, nothing on errOut.
+		// Blank / whitespace-only input just reprompts — no command, no error.
 		{"", ">", ""},
-		{" ", ">", ""},
+		{"   ", ">", ""},
 
-		// Happy paths.
-		{"post hello", stamp + " - 1\nhello", ""},
-		{"list", ">no posts yet", ""},
+		// Happy paths, entity-first grammar.
+		{"post create hello", stamp + " - 1\nhello", ""},
+		{"post list", "no posts yet", ""},
 
-		// The command is case-folded, but the body keeps its case and its spaces.
-		{"POST Hello World", stamp + " - 1\nHello World", ""},
+		// The body keeps its case (and its words).
+		{"post create Hello World", stamp + " - 1\nHello World", ""},
+
+		// Commands are case-insensitive; the body still keeps its case.
+		{"POST CREATE hello", stamp + " - 1\nhello", ""},
 
 		// list renders multiple posts back-to-back. The expected substring has
 		// no prompt between the two posts, so it can only match the list output,
 		// not the per-post echoes (which are separated by ">" prompts).
-		{"post a\npost b\nlist", stamp + " - 1\na\n" + stamp + " - 2\nb", ""},
+		{"post create a\npost create b\npost list", stamp + " - 1\na\n" + stamp + " - 2\nb", ""},
 
 		// Persistence within a session: a post created by one command is
-		// readable by a later command in the same run. If state didn't persist,
-		// "get 1" would error to errOut and the empty-errOut check would fail.
-		{"post first\nget 1", stamp + " - 1\nfirst", ""},
+		// readable by a later command in the same run.
+		{"post create first\npost get 1", stamp + " - 1\nfirst", ""},
 
 		// Error paths — all route to errOut, never to out.
-		{"get 1", ">", "can't get post 1: post not found"},
-		{"get abc", ">", "parsing argument"},
-		{"post", ">", "post requires a body"},
+		{"post get 1", ">", "can't get post 1: post not found"},
+		{"post get abc", ">", "parsing argument"},
+		{"post create", ">", "post requires a body"},
 		{"flarp", ">", "unknown command: flarp"},
 	}
 
@@ -55,12 +72,7 @@ func TestRun(t *testing.T) {
 			in := strings.NewReader(c.input)
 			var out, errOut bytes.Buffer
 
-			app := &cli{
-				posts:  posts,
-				in:     in,
-				out:    &out,
-				errOut: &errOut,
-			}
+			app := newTestRepl(posts, in, &out, &errOut)
 			app.run()
 
 			if !strings.Contains(out.String(), c.want) {
@@ -87,14 +99,13 @@ func TestRun(t *testing.T) {
 
 // quit must stop the loop *before* the next command runs — not merely let the
 // program exit at EOF. So a command after "quit" should never execute: nothing
-// beyond the initial prompt should reach out. An exact match (not a substring)
-// is what proves "nothing else happened".
+// beyond the initial prompt should reach out.
 func TestRunQuit(t *testing.T) {
 	posts := &fakeStore{}
-	in := strings.NewReader("quit\npost should-not-run")
+	in := strings.NewReader("quit\npost create should-not-run")
 	var out, errOut bytes.Buffer
 
-	app := &cli{posts: posts, in: in, out: &out, errOut: &errOut}
+	app := newTestRepl(posts, in, &out, &errOut)
 	app.run()
 
 	if out.String() != ">" {
@@ -109,10 +120,10 @@ func TestRunQuit(t *testing.T) {
 // not leak into out. We force Create to fail and check the error surfaces.
 func TestRunStoreError(t *testing.T) {
 	posts := &fakeStore{createErr: errors.New("db exploded")}
-	in := strings.NewReader("post hello")
+	in := strings.NewReader("post create hello")
 	var out, errOut bytes.Buffer
 
-	app := &cli{posts: posts, in: in, out: &out, errOut: &errOut}
+	app := newTestRepl(posts, in, &out, &errOut)
 	app.run()
 
 	if !strings.Contains(errOut.String(), "db exploded") {
@@ -123,11 +134,10 @@ func TestRunStoreError(t *testing.T) {
 	}
 }
 
-// fakeStore is an in-memory test double satisfying postData. It assigns
+// fakeStore is an in-memory test double satisfying postRepository. It assigns
 // incrementing IDs from 1 and stamps every post with a fixed clock, so the
-// cli's formatted output is deterministic without touching a real database.
-// When createErr is set, Create returns it instead, to exercise store-failure
-// handling.
+// formatted output is deterministic without touching a real database. When
+// createErr is set, Create returns it instead, to exercise store-failure handling.
 type fakeStore struct {
 	posts     []post.Post
 	nextID    int64
