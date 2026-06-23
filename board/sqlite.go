@@ -81,17 +81,8 @@ func (s *SQLite) List() ([]Board, error) {
 	return boardList, err
 }
 
-func (s *SQLite) Delete(id int64) error {
-	result, err := s.db.Exec("DELETE FROM board WHERE id = ?", id)
-	if err != nil {
-		return fmt.Errorf("error deleting board %d: %w", id, err)
-	}
-	no, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("error deleting board %d: %w", id, err)
-	}
-	if no == 0 {
-		return fmt.Errorf("deleting board %d: %w", id, ErrNotFound)
-	}
-	return nil
+func (s *SQLite) Delete(id int64) (deletedBoard Board, err error) {
+	row := s.db.QueryRow("DELETE FROM board WHERE id = ? RETURNING id, name", id)
+	deletedBoard, err = scanBoard(row)
+	return deletedBoard, err
 }

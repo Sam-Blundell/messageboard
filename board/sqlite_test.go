@@ -100,8 +100,12 @@ func testRepository(t *testing.T, newRepo func() *SQLite) {
 		repo := newRepo()
 		created := mustCreate(t, repo, "delete_me")
 
-		if err := repo.Delete(created.ID); err != nil {
+		deleted, err := repo.Delete(created.ID)
+		if err != nil {
 			t.Fatalf("Delete(%d): %v", created.ID, err)
+		}
+		if deleted != created {
+			t.Errorf("Delete returned %+v, want the deleted board %+v", deleted, created)
 		}
 
 		boards, err := repo.List()
@@ -114,7 +118,7 @@ func testRepository(t *testing.T, newRepo func() *SQLite) {
 	})
 
 	t.Run("Delete on a missing id returns ErrNotFound", func(t *testing.T) {
-		err := newRepo().Delete(999)
+		_, err := newRepo().Delete(999)
 		if !errors.Is(err, ErrNotFound) {
 			t.Errorf("got error %v, want ErrNotFound", err)
 		}

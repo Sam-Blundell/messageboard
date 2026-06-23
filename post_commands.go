@@ -76,9 +76,9 @@ func (pc *postCommands) dispatch(tokens []string) (result string, err error) {
 		return "", ErrMissingCmd
 	}
 
-	action := tokens[0]
+	action := strings.ToLower(tokens[0])
 
-	switch strings.ToLower(action) {
+	switch action {
 	case "get":
 		fetched, err := pc.handleGet(tokens[1:])
 		if err != nil {
