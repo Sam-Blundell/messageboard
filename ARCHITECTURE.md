@@ -117,8 +117,9 @@ All faces are thin adapters over the **same shared handlers**.
 
 - **Testability seams:** clock injection via the adapter's unexported `now func()
   time.Time` (set white-box in package tests — the functional-options version was
-  dropped when persistence went SQL-only); a `fakeStore` implementing the
-  `postRepository` port for transport tests (no DB); injected `io.Reader`/`io.Writer`
+  dropped when persistence went SQL-only); fake repositories
+  (`fakePostRepo`/`fakeBoardRepo`) implementing the consumer ports for command and
+  driver tests (no DB); injected `io.Reader`/`io.Writer`
   on transports (scripted input + captured buffers); a `:memory:` SQLite +
   `storage.Migrate` for the adapter's own contract suite. Dependencies injected from
   `main` (the composition root); no globals.
@@ -128,7 +129,7 @@ All faces are thin adapters over the **same shared handlers**.
 
 ---
 
-## Current state — as of 2026-06-20
+## Current state — as of 2026-06-29
 
 - **`storage` package:** DB infrastructure. `Open(path)` (open + ping),
   `Migrate(conn, []Migration)` (runs in order, names the failing migration),
@@ -136,19 +137,35 @@ All faces are thin adapters over the **same shared handlers**.
   and the `modernc.org/sqlite` driver blank-import (transitive — importing `storage`
   registers the driver). Connections are created here and injected into adapters.
   Tested (`-race`): happy path, idempotency of the real schema, fail-fast,
-  named-failure, empty list.
-- **`post` package:** `Post` entity, `ErrNotFound`, and `SQLite` — the SQLite-backed
-  adapter (`NewSQLite(db *sql.DB)`, `Create`/`ByID`/`List`). Timestamps stored as Unix
-  epoch seconds; a `scanPost` helper round-trips them back to UTC `time.Time`.
-  Unexported `now` field for white-box clock tests. A black-box contract suite runs
-  against a fresh `:memory:` DB per subtest, plus a timestamp round-trip test.
-- **CLI REPL** (root `package main`): `cli` struct (`posts`/`in`/`out`/`errOut`), where
-  `posts` is the consumer-side `postRepository` port; `parseInput`/`formatPost`/
-  `formatList` free functions. Commands `post`/`get`/`list`/`quit` + empty/unknown.
-  Errors routed to `errOut`. Tested with a `fakeStore` (no DB).
-- **No application handler layer yet** — the CLI calls the repository port directly.
-  The handler hub is still to be built (justified once boards/threads bring
-  cross-repository orchestration).
+  named-failure.
+- **Domain + persistence packages `post` and `board`:** each holds its entity
+  (`Post`/`Board`), its domain errors, and a SQLite adapter (`NewSQLite(db)`). Post:
+  `Create`/`ByID`/`List`, timestamps stored as Unix epoch seconds via a `scanPost`
+  helper, unexported `now` for white-box clock tests. Board: `Create`/`List`/`Delete`
+  (delete uses `DELETE … RETURNING` to hand back the removed row), `name` is `UNIQUE`
+  (→ `ErrDuplicateName`). Each package has a black-box contract suite against a fresh
+  `:memory:` DB, plus (post) a timestamp round-trip test.
+- **Command system (`package main`):** entity-first and multi-entity.
+  `commands.execute(tokens)` handles globals (`help`) then routes via `entityDispatch`
+  → the per-entity command module (`postCommands`/`boardCommands`). Each module owns
+  its consumer-side port (`postRepository`/`boardRepository`), its `dispatch`, its
+  handlers, and its formatters. Routing is case-insensitive; args and bodies keep
+  their case.
+- **Two drivers over the one evaluator:** the **`repl`** driver (read loop +
+  `tokeniser` + `isQuit`, in `repl.go`) for interactive use, and a **one-shot** branch
+  in `main`'s `run()` (`len(os.Args) > 1` → `execute(os.Args[1:])` → stdout/stderr +
+  exit code). `quit` is loop-control and never reaches `execute`. `main` is a thin
+  error boundary over `run() error`.
+- **Tests are layered to match the code:** adapter contract suites (in the entity
+  packages); per-entity command tests at the `dispatch` level with fake repos
+  (`post_commands_test.go`/`board_commands_test.go`); evaluator routing
+  (`commands_test.go`); and a small, fixed-size driver test for the loop and streams
+  (`repl_test.go`). Per-command behaviour lives with its entity, so adding an entity
+  doesn't grow a central table.
+- **Not yet:** no application handler/service layer — commands call repos directly
+  (honest until cross-entity orchestration arrives). `help` is a placeholder string.
+  The one-shot `run()` wiring is hand-verified, not unit-tested (it reads `os.Args`
+  and writes `os.Stdout`/`os.Stderr` directly).
 - **Tooling:** pre-push hook (`gofmt` + `go vet` + `go test -race`); Delve for
   debugging.
 
@@ -159,10 +176,9 @@ All faces are thin adapters over the **same shared handlers**.
 - **Persistence:** ✅ done. Progressed in-memory → file → SQLite, then committed to
   SQLite alone (in-memory/file dropped). The `storage` infra package, the
   `post.SQLite` adapter, and the consumer-side `postRepository` port are in place.
-- **CLI command system (next):** rework the single-entity REPL into the entity-first
-  multi-entity command system (see Key decisions), with a shared REPL/one-shot
-  `execute`. Unlocks board/thread commands and terminal one-shot use. Detailed build
-  order is tracked outside this doc.
+- **CLI command system:** ✅ done. Entity-first, multi-entity commands
+  (`commands` evaluator + `postCommands`/`boardCommands`), a `repl` driver and a
+  one-shot terminal mode sharing one `execute`, with layered tests.
 - **Domain:** add boards (and threads). New domain package(s) + likely the
   service/handler layer for cross-repository orchestration.
 - **Transports:** Bubbletea TUI (a _second transport_ — motivates extracting the CLI

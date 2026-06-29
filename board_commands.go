@@ -98,7 +98,7 @@ func (bc *boardCommands) dispatch(tokens []string) (result string, err error) {
 		if err != nil {
 			return "", err
 		}
-		result = "deleted board" + formatBoard(deletedBoard)
+		result = "deleted board " + formatBoard(deletedBoard)
 		return result, nil
 	default:
 		return "", ErrUnknownCmd

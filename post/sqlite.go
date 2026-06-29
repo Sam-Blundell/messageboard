@@ -8,7 +8,7 @@ import (
 )
 
 // SQLite is the SQLite-backed adapter for post persistence. It satisfies the
-// consumer-defined Repository port (declared in package main); callers only see
+// consumer-defined postRepository port (declared in package main); callers only see
 // that interface and never this concrete type — except at the composition root,
 // which is the one place allowed to choose the backend.
 type SQLite struct {

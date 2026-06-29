@@ -1,10 +1,12 @@
 # messageboard
 
-A small messageboard backend, written in Go. Currently a posts-only guestbook.
-Driven by a command-line REPL and persisted to SQLite.
-Boards, threads, and other transports (HTTP/JSON API, SSR web, an SSH TUI) are planned.
+A small messageboard backend, written in Go. It manages **boards** and the
+**posts** within them, persisted to SQLite, and runs two ways: as an interactive
+REPL, or as a one-shot terminal command.
 
-This is primarily a learning project — the design decisions and their reasoning are documented in [ARCHITECTURE.md](ARCHITECTURE.md)
+This is primarily a learning project — the design decisions and the reasoning
+behind them live in [ARCHITECTURE.md](ARCHITECTURE.md), which is worth reading
+before the code.
 
 ## Requirements
 
@@ -13,39 +15,58 @@ This is primarily a learning project — the design decisions and their reasonin
 No external services or C toolchain needed — it uses the pure-Go
 [`modernc.org/sqlite`](https://pkg.go.dev/modernc.org/sqlite) driver.
 
-## Run
+## Running
+
+Both modes open (creating if absent) a SQLite file named `database` in the working
+directory and apply the schema migrations first. The `database` file is gitignored.
+
+**Interactive REPL** — run with no arguments:
 
 ```sh
 go run .
 ```
 
-On start it opens (creating if absent) a SQLite database file named `database` in
-the working directory, applies the schema migrations, and drops into the REPL.
-The `database` file is gitignored.
+**One-shot** — pass a command as arguments; it runs once and exits with a status
+code (0 success, non-zero on error):
 
-### Commands
+```sh
+go run . post create "hello world"
+go run . board list
+```
 
-| Command       | Description                       |
-| ------------- | --------------------------------- |
-| `post <body>` | Create a post with the given body |
-| `get <id>`    | Fetch a single post by its ID     |
-| `list`        | List all posts, oldest first      |
-| `quit`        | Exit                              |
+(Built as a binary, that's `messageboard post create "hello world"`.)
 
-Example session:
+## Commands
+
+Commands are **entity-first** (`<entity> <action> [args]`) and case-insensitive.
+
+| Command                 | Description                       |
+| ----------------------- | --------------------------------- |
+| `post create <body>`    | Create a post                     |
+| `post get <id>`         | Fetch a single post by ID         |
+| `post list`             | List all posts, oldest first      |
+| `board create <name>`   | Create a board (names are unique) |
+| `board list`            | List all boards                   |
+| `board delete <id>`     | Delete a board by ID              |
+| `help`                  | Show help (placeholder for now)   |
+| `quit`                  | Exit the REPL (a no-op one-shot)  |
+
+Example REPL session:
 
 ```
->post hello world
-2026-06-20 12:00:00 - 1
+>board create hobbies
+#1 - hobbies
+>post create hello world
+2026-06-29 12:00:00 - 1
 hello world
->list
-2026-06-20 12:00:00 - 1
+>post list
+2026-06-29 12:00:00 - 1
 hello world
 >quit
 ```
 
-Errors (unknown command, missing post, bad input) are written to stderr; normal
-output goes to stdout.
+Normal output goes to stdout; errors (unknown command, missing record, bad input)
+go to stderr.
 
 ## Build
 
@@ -59,9 +80,10 @@ go build -o messageboard .
 go test -race ./...
 ```
 
-The suite includes a black-box contract suite for the persistence adapter (run
-against an in-memory SQLite database) and a transport test that drives the REPL
-with scripted input against a fake store.
+Tests are layered to match the code: each persistence adapter has a contract suite
+run against an in-memory SQLite DB; each entity's commands are tested at the
+dispatch level with fake repositories; command routing and the REPL loop are tested
+separately, each for the guarantee it owns.
 
 ## Development
 
@@ -74,12 +96,15 @@ git config core.hooksPath .githooks
 
 ## Layout
 
-| Path       | Responsibility                                                       |
-| ---------- | -------------------------------------------------------------------- |
-| `main.go`  | Composition root — opens the DB, migrates, wires and runs the cli    |
-| `cli.go`   | The REPL transport and its `postRepository` port                     |
-| `post/`    | The `Post` entity and the `SQLite` persistence adapter               |
-| `storage/` | DB infrastructure — connection opening and ordered schema migrations |
+| Path                | Responsibility                                                    |
+| ------------------- | ---------------------------------------------------------------- |
+| `main.go`           | Composition root — open DB, migrate, wire, run (REPL or one-shot) |
+| `repl.go`           | The interactive REPL driver (read loop, tokeniser)               |
+| `commands.go`       | The command evaluator — routes `<entity> <action>` to a handler  |
+| `post_commands.go`  | Post commands + the `postRepository` port                        |
+| `board_commands.go` | Board commands + the `boardRepository` port                      |
+| `post/`, `board/`   | The `Post`/`Board` entities and their `SQLite` adapters          |
+| `storage/`          | DB infrastructure — connection opening + ordered migrations      |
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the target architecture and the
 reasoning behind these boundaries.
