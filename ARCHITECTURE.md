@@ -1,7 +1,7 @@
 # Messageboard — Architecture & Design
 
-> A living design doc capturing the **target architecture and the reasoning behind
-> the decisions** not a description of the current code.
+This is an aspirational design doc, it's the **target architecture and the
+reasoning behind the decisions**, not a description of the current code.
 
 ---
 
@@ -22,10 +22,9 @@ the database except through it.
  in-proc CLI    JSON API    SSR web    TUI (SSH)      ← thin adapters
 ```
 
-**The command/query handlers are the hub.** Every face (CLI, HTTP, web, TUI) calls
-the handlers; the handlers call repositories; repositories hit the DB. No transport
-talks to a repository or the DB directly. This keeps all business logic in one place
-and every transport thin.
+**The command/query handlers are the hub.** Every client (CLI, HTTP, web, TUI) calls
+the handlers; the handlers call repositories; repositories hit the DB.
+No transport talks to a repository or the DB directly.
 
 ---
 
@@ -42,8 +41,6 @@ and every transport thin.
 **2. `cli`** — a remote client. A pure **HTTP client** to the server's JSON API.
 "Local" just means pointing at `localhost`; "remote" means another host — one flag
 (the URL) decides. No embedded core.
-
-All faces are thin adapters over the **same shared handlers**.
 
 ---
 
@@ -99,7 +96,7 @@ All faces are thin adapters over the **same shared handlers**.
   `execute(tokens) (output, error)` core dispatches entity → action →
   transport-handler. Both faces share `execute`: the **REPL** loops over it; the
   **one-shot** form (`messageboard board create hiking`, taken when `len(os.Args) >
-  1`) calls it once and exits with a status code (stdout/stderr, non-zero on
+1`) calls it once and exits with a status code (stdout/stderr, non-zero on
   failure). `quit` is loop-control — a guard in each driver, never reaching
   `execute` (one-shot no-ops it); `help` is a real command inside `execute`. Flags
   use the stdlib `flag` package, per-command inside the handler (`ContinueOnError`,
@@ -116,7 +113,7 @@ All faces are thin adapters over the **same shared handlers**.
   ceremony.
 
 - **Testability seams:** clock injection via the adapter's unexported `now func()
-  time.Time` (set white-box in package tests — the functional-options version was
+time.Time` (set white-box in package tests — the functional-options version was
   dropped when persistence went SQL-only); fake repositories
   (`fakePostRepo`/`fakeBoardRepo`) implementing the consumer ports for command and
   driver tests (no DB); injected `io.Reader`/`io.Writer`
