@@ -13,8 +13,9 @@ import (
 
 func newTestCommands() *commands {
 	return &commands{
-		posts:  &postCommands{posts: &fakePostRepo{now: fixedClock}},
-		boards: &boardCommands{boards: &fakeBoardRepo{}},
+		posts:   &postCommands{posts: &fakePostRepo{now: fixedClock}},
+		boards:  &boardCommands{boards: &fakeBoardRepo{}},
+		threads: &threadCommands{threads: &fakeThreadRepo{}},
 	}
 }
 
@@ -26,6 +27,16 @@ func TestExecuteRouting(t *testing.T) {
 		}
 		if !strings.Contains(got, "hi") {
 			t.Errorf("got %q, want post output", got)
+		}
+	})
+
+	t.Run("routes to thread commands", func(t *testing.T) {
+		got, err := newTestCommands().execute([]string{"thread", "create", "1", "general"})
+		if err != nil {
+			t.Fatalf("execute: %v", err)
+		}
+		if !strings.Contains(got, "general") {
+			t.Errorf("got %q, want thread output", got)
 		}
 	})
 

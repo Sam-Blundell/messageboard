@@ -6,8 +6,9 @@ import (
 )
 
 type commands struct {
-	boards *boardCommands
-	posts  *postCommands
+	boards  *boardCommands
+	posts   *postCommands
+	threads *threadCommands
 }
 
 func (c *commands) execute(tokens []string) (result string, err error) {
@@ -38,6 +39,12 @@ func (c *commands) entityDispatch(tokens []string) (result string, err error) {
 		return result, nil
 	case "post":
 		result, err := c.posts.dispatch(tokens[1:])
+		if err != nil {
+			return "", err
+		}
+		return result, nil
+	case "thread":
+		result, err := c.threads.dispatch(tokens[1:])
 		if err != nil {
 			return "", err
 		}

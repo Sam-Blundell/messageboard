@@ -16,8 +16,9 @@ import (
 func newTestRepl(in io.Reader, out, errOut io.Writer) *repl {
 	return &repl{
 		commands: &commands{
-			posts:  &postCommands{posts: &fakePostRepo{now: fixedClock}},
-			boards: &boardCommands{boards: &fakeBoardRepo{}},
+			posts:   &postCommands{posts: &fakePostRepo{now: fixedClock}},
+			boards:  &boardCommands{boards: &fakeBoardRepo{}},
+			threads: &threadCommands{threads: &fakeThreadRepo{}},
 		},
 		in:     in,
 		out:    out,

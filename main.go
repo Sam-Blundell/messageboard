@@ -7,6 +7,7 @@ import (
 	"github.com/Sam-Blundell/messageboard/board"
 	"github.com/Sam-Blundell/messageboard/post"
 	"github.com/Sam-Blundell/messageboard/storage"
+	"github.com/Sam-Blundell/messageboard/thread"
 )
 
 func run() error {
@@ -22,10 +23,12 @@ func run() error {
 
 	posts := post.NewSQLite(db)
 	boards := board.NewSQLite(db)
+	threads := thread.NewSQLite(db)
 
 	cmds := &commands{
-		posts:  &postCommands{posts: posts},
-		boards: &boardCommands{boards: boards},
+		posts:   &postCommands{posts: posts},
+		boards:  &boardCommands{boards: boards},
+		threads: &threadCommands{threads: threads},
 	}
 
 	if len(os.Args) > 1 {
