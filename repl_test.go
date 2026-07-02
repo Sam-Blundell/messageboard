@@ -33,9 +33,9 @@ func TestReplLoop(t *testing.T) {
 		wantErrOut string // substring expected in errOut; "" means errOut must be empty
 	}{
 		// A successful command's result reaches out.
-		{"result to out", "post create hello", "hello", ""},
+		{"result to out", "post create 1 hello", "hello", ""},
 		// State persists across the session: a second command sees the first's effect.
-		{"session state persists", "post create hello\npost list", "hello", ""},
+		{"session state persists", "post create 1 hello\npost list", "hello", ""},
 		// Blank input just reprompts — nothing on errOut.
 		{"blank line is silent", "   ", ">", ""},
 		// An error reaches errOut (and must not leak into out).
@@ -73,7 +73,7 @@ func TestReplLoop(t *testing.T) {
 // should never execute, so nothing beyond the initial prompt reaches out.
 func TestReplQuit(t *testing.T) {
 	var out, errOut bytes.Buffer
-	app := newTestRepl(strings.NewReader("quit\npost create should-not-run"), &out, &errOut)
+	app := newTestRepl(strings.NewReader("quit\npost create 1 should-not-run"), &out, &errOut)
 	app.loop()
 
 	if out.String() != ">" {

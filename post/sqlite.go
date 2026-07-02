@@ -5,6 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	sqlite "modernc.org/sqlite"
+	sqlite3 "modernc.org/sqlite/lib"
 )
 
 // SQLite is the SQLite-backed adapter for post persistence. It satisfies the
@@ -25,11 +28,15 @@ func NewSQLite(db *sql.DB) *SQLite {
 	return sqlite
 }
 
-func (s *SQLite) Create(body string) (newPost Post, err error) {
+func (s *SQLite) Create(threadID int64, body string) (newPost Post, err error) {
 	unixTimestamp := s.now().UTC().Unix()
 
-	result, err := s.db.Exec("INSERT INTO post (body, created_at) VALUES (?, ?)", body, unixTimestamp)
+	result, err := s.db.Exec("INSERT INTO post (body, thread_id, created_at) VALUES (?, ?, ?)", body, threadID, unixTimestamp)
 	if err != nil {
+		var sqliteErr *sqlite.Error
+		if errors.As(err, &sqliteErr) && sqliteErr.Code() == sqlite3.SQLITE_CONSTRAINT_FOREIGNKEY {
+			return Post{}, ErrThreadNotFound
+		}
 		return Post{}, fmt.Errorf("error creating post: %w", err)
 	}
 
@@ -42,6 +49,7 @@ func (s *SQLite) Create(body string) (newPost Post, err error) {
 
 	newPost = Post{
 		ID:       id,
+		ThreadID: threadID,
 		PostTime: postTimestamp,
 		Body:     body,
 	}
@@ -56,7 +64,7 @@ type scanner interface {
 func scanPost(s scanner) (Post, error) {
 	var p Post
 	var createdAt int64
-	err := s.Scan(&p.ID, &p.Body, &createdAt)
+	err := s.Scan(&p.ID, &p.Body, &p.ThreadID, &createdAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Post{}, ErrNotFound
@@ -68,7 +76,7 @@ func scanPost(s scanner) (Post, error) {
 }
 
 func (s *SQLite) ByID(id int64) (Post, error) {
-	row := s.db.QueryRow("SELECT id, body, created_at FROM post WHERE id = ?", id)
+	row := s.db.QueryRow("SELECT id, body, thread_id, created_at FROM post WHERE id = ?", id)
 	p, err := scanPost(row)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
@@ -80,7 +88,7 @@ func (s *SQLite) ByID(id int64) (Post, error) {
 }
 
 func (s *SQLite) List() ([]Post, error) {
-	rows, err := s.db.Query("SELECT id, body, created_at FROM post ORDER BY id")
+	rows, err := s.db.Query("SELECT id, body, thread_id, created_at FROM post ORDER BY id")
 	if err != nil {
 		return []Post{}, err
 	}

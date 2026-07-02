@@ -20,7 +20,7 @@ func newTestCommands() *commands {
 
 func TestExecuteRouting(t *testing.T) {
 	t.Run("routes to post commands", func(t *testing.T) {
-		got, err := newTestCommands().execute([]string{"post", "create", "hi"})
+		got, err := newTestCommands().execute([]string{"post", "create", "1", "hi"})
 		if err != nil {
 			t.Fatalf("execute: %v", err)
 		}
@@ -40,7 +40,7 @@ func TestExecuteRouting(t *testing.T) {
 	})
 
 	t.Run("entity and action are case-insensitive", func(t *testing.T) {
-		got, err := newTestCommands().execute([]string{"POST", "CREATE", "hi"})
+		got, err := newTestCommands().execute([]string{"POST", "CREATE", "1", "hi"})
 		if err != nil {
 			t.Fatalf("execute: %v", err)
 		}

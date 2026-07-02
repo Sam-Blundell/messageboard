@@ -10,7 +10,7 @@ import (
 )
 
 type postRepository interface {
-	Create(body string) (post.Post, error)
+	Create(threadID int64, body string) (post.Post, error)
 	ByID(id int64) (post.Post, error)
 	List() ([]post.Post, error)
 }
@@ -53,11 +53,15 @@ func (pc *postCommands) handleGet(tokens []string) (fetched post.Post, err error
 }
 
 func (pc *postCommands) handleCreate(tokens []string) (newPost post.Post, err error) {
-	if len(tokens) == 0 {
-		return post.Post{}, errors.New("post requires a body")
+	if len(tokens) < 2 {
+		return post.Post{}, errors.New("usage: post create <thread-id> <body>")
 	}
-	body := strings.Join(tokens, " ")
-	newPost, err = pc.posts.Create(body)
+	threadID, err := strconv.ParseInt(tokens[0], 10, 64)
+	if err != nil {
+		return post.Post{}, fmt.Errorf("thread ID must be a number, got %q", tokens[0])
+	}
+	body := strings.Join(tokens[1:], " ")
+	newPost, err = pc.posts.Create(threadID, body)
 	if err != nil {
 		return post.Post{}, err
 	}

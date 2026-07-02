@@ -9,10 +9,15 @@ import (
 	"github.com/Sam-Blundell/messageboard/storage"
 )
 
-// mustCreate creates a post and fails the test on error.
+const (
+	testBoardID  int64 = 1
+	testThreadID int64 = 1
+)
+
+// mustCreate creates a post in the seeded test thread and fails on error.
 func mustCreate(t *testing.T, repo *SQLite, body string) Post {
 	t.Helper()
-	p, err := repo.Create(body)
+	p, err := repo.Create(testThreadID, body)
 	if err != nil {
 		t.Fatalf("Create(%q): %v", body, err)
 	}
@@ -32,6 +37,15 @@ func newTestDB(t *testing.T) *sql.DB {
 	conn.SetMaxOpenConns(1)
 	if err := storage.Migrate(conn, storage.Migrations); err != nil {
 		t.Fatalf("migrating test db: %v", err)
+	}
+	// A post needs a parent thread, which needs a parent board (both FKs are
+	// enforced). Seed that board -> thread chain so posts have a thread to attach
+	// to; testThreadID is the thread every seeded post belongs to.
+	if _, err := conn.Exec("INSERT INTO board (id, name) VALUES (?, ?)", testBoardID, "test board"); err != nil {
+		t.Fatalf("seeding board: %v", err)
+	}
+	if _, err := conn.Exec("INSERT INTO thread (id, title, board_id, created_at) VALUES (?, ?, ?, ?)", testThreadID, "test thread", testBoardID, 0); err != nil {
+		t.Fatalf("seeding thread: %v", err)
 	}
 	t.Cleanup(func() { conn.Close() })
 	return conn
@@ -77,6 +91,13 @@ func testRepository(t *testing.T, newRepo func() *SQLite) {
 				t.Errorf("got ID %d, want greater than previous %d", got.ID, prev)
 			}
 			prev = got.ID
+		}
+	})
+
+	t.Run("create in a nonexistent thread returns ErrThreadNotFound", func(t *testing.T) {
+		_, err := newRepo().Create(999, "orphan")
+		if !errors.Is(err, ErrThreadNotFound) {
+			t.Errorf("got %v, want ErrThreadNotFound", err)
 		}
 	})
 
@@ -147,7 +168,7 @@ func TestSQLiteTimestampRoundTrip(t *testing.T) {
 	repo.now = func() time.Time { return fixed }
 	want := fixed.Truncate(time.Second) // 2026-03-04 05:06:07 UTC, no sub-seconds
 
-	created, err := repo.Create("hello")
+	created, err := repo.Create(testThreadID, "hello")
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}

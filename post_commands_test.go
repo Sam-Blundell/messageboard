@@ -27,12 +27,12 @@ type fakePostRepo struct {
 	createErr error
 }
 
-func (f *fakePostRepo) Create(body string) (post.Post, error) {
+func (f *fakePostRepo) Create(threadID int64, body string) (post.Post, error) {
 	if f.createErr != nil {
 		return post.Post{}, f.createErr
 	}
 	f.nextID++
-	p := post.Post{ID: f.nextID, PostTime: f.now, Body: body}
+	p := post.Post{ID: f.nextID, ThreadID: threadID, PostTime: f.now, Body: body}
 	f.posts = append(f.posts, p)
 	return p, nil
 }
@@ -57,7 +57,7 @@ func newPostCommands() *postCommands {
 func TestPostCommandsDispatch(t *testing.T) {
 	t.Run("create returns the new post", func(t *testing.T) {
 		pc := newPostCommands()
-		got, err := pc.dispatch([]string{"create", "hello", "world"})
+		got, err := pc.dispatch([]string{"create", "1", "hello", "world"})
 		if err != nil {
 			t.Fatalf("dispatch: %v", err)
 		}
@@ -67,17 +67,25 @@ func TestPostCommandsDispatch(t *testing.T) {
 		}
 	})
 
-	t.Run("create with no body errors", func(t *testing.T) {
+	t.Run("create with too few arguments returns usage", func(t *testing.T) {
 		pc := newPostCommands()
 		_, err := pc.dispatch([]string{"create"})
-		if err == nil || !strings.Contains(err.Error(), "requires a body") {
-			t.Errorf("got %v, want a 'requires a body' error", err)
+		if err == nil || !strings.Contains(err.Error(), "usage") {
+			t.Errorf("got %v, want a usage error", err)
+		}
+	})
+
+	t.Run("create with a non-numeric thread id errors", func(t *testing.T) {
+		pc := newPostCommands()
+		_, err := pc.dispatch([]string{"create", "abc", "hi"})
+		if err == nil || !strings.Contains(err.Error(), "must be a number") {
+			t.Errorf("got %v, want a 'must be a number' error", err)
 		}
 	})
 
 	t.Run("create propagates a store failure", func(t *testing.T) {
 		pc := &postCommands{posts: &fakePostRepo{createErr: errors.New("db down")}}
-		_, err := pc.dispatch([]string{"create", "x"})
+		_, err := pc.dispatch([]string{"create", "1", "x"})
 		if err == nil || !strings.Contains(err.Error(), "db down") {
 			t.Errorf("got %v, want the store error to propagate", err)
 		}
@@ -85,7 +93,7 @@ func TestPostCommandsDispatch(t *testing.T) {
 
 	t.Run("get returns an existing post", func(t *testing.T) {
 		pc := newPostCommands()
-		pc.dispatch([]string{"create", "hello"})
+		pc.dispatch([]string{"create", "1", "hello"})
 		got, err := pc.dispatch([]string{"get", "1"})
 		if err != nil {
 			t.Fatalf("dispatch: %v", err)
@@ -124,8 +132,8 @@ func TestPostCommandsDispatch(t *testing.T) {
 
 	t.Run("list returns all posts", func(t *testing.T) {
 		pc := newPostCommands()
-		pc.dispatch([]string{"create", "a"})
-		pc.dispatch([]string{"create", "b"})
+		pc.dispatch([]string{"create", "1", "a"})
+		pc.dispatch([]string{"create", "1", "b"})
 		got, err := pc.dispatch([]string{"list"})
 		if err != nil {
 			t.Fatalf("dispatch: %v", err)
