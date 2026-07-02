@@ -37,8 +37,8 @@ type boardCommands struct {
 }
 
 func (bc *boardCommands) handleCreate(tokens []string) (newBoard board.Board, err error) {
-	if len(tokens) == 0 {
-		return board.Board{}, errors.New("board requires a name")
+	if len(tokens) != 1 {
+		return board.Board{}, errors.New("board create requires exactly one name (quote names containing spaces)")
 	}
 	name := tokens[0]
 	newBoard, err = bc.boards.Create(name)

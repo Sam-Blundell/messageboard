@@ -92,7 +92,7 @@ No transport talks to a repository or the DB directly.
 
 - **CLI command interface — multi-entity, REPL and one-shot share one core.**
   Entity-first noun-verb (`board create hiking`), one verb vocabulary across all
-  entities. A quote-aware tokenizer turns a REPL line into `[]string`; a pure
+  entities. A quote-aware tokeniser turns a REPL line into `[]string`; a pure
   `execute(tokens) (output, error)` core dispatches entity → action →
   transport-handler. Both faces share `execute`: the **REPL** loops over it; the
   **one-shot** form (`messageboard board create hiking`, taken when `len(os.Args) >
@@ -105,6 +105,18 @@ No transport talks to a repository or the DB directly.
   shared across the two _cli modes_, not the cross-transport hub — these handlers
   are transport-level (they call repos directly), and the one-shot user CLI is the
   "may fade" in-process user face, not the permanent admin one.
+
+- **REPL tokeniser implements shell word-splitting (decided 2026-07-03).** One-shot
+  mode's tokens come from the shell, so the REPL must produce identical tokens for
+  the same line or the two modes silently diverge. Hence shell semantics: quotes
+  (single or double) toggle whether whitespace is literal — they never delimit
+  tokens — so `gen"eral chat"` is one token, either quote type is literal inside
+  the other, and `""` is a legal empty token. No escape sequences (quote the other
+  quote instead). The alternative model — a quote starts a new token, as in CSV or
+  string literals — was considered and rejected for exactly that divergence. An
+  unterminated quote is an error: the named sentinel `ErrUnclosedQuotes`, so a
+  future driver could catch it and prompt for a continuation line (bash-style
+  multi-line input) instead of failing.
 
 - **Service/handler layer earns its place with orchestration.** A dedicated service
   layer is justified when an operation spans multiple repositories or needs
@@ -126,7 +138,7 @@ time.Time` (set white-box in package tests — the functional-options version wa
 
 ---
 
-## Current state — as of 2026-06-29
+## Current state — as of 2026-07-03
 
 - **`storage` package:** DB infrastructure. `Open(path)` (open + ping),
   `Migrate(conn, []Migration)` (runs in order, names the failing migration),
@@ -148,8 +160,10 @@ time.Time` (set white-box in package tests — the functional-options version wa
   its consumer-side port (`postRepository`/`boardRepository`), its `dispatch`, its
   handlers, and its formatters. Routing is case-insensitive; args and bodies keep
   their case.
-- **Two drivers over the one evaluator:** the **`repl`** driver (read loop +
-  `tokeniser` + `isQuit`, in `repl.go`) for interactive use, and a **one-shot** branch
+- **Two drivers over the one evaluator:** the **`repl`** driver (read loop + `isQuit`
+  in `repl.go`; the quote-aware `tokenise` in `tokeniser.go`, with its own table-driven
+  test suite — an invalid line goes to `errOut` and reprompts, never reaching
+  `execute`) for interactive use, and a **one-shot** branch
   in `main`'s `run()` (`len(os.Args) > 1` → `execute(os.Args[1:])` → stdout/stderr +
   exit code). `quit` is loop-control and never reaches `execute`. `main` is a thin
   error boundary over `run() error`.

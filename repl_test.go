@@ -42,6 +42,8 @@ func TestReplLoop(t *testing.T) {
 		// An error reaches errOut (and must not leak into out).
 		{"error to errOut", "post get 99", ">", "post not found"},
 		{"unknown command to errOut", "flarp", ">", "unknown command"},
+		// A tokenising error reaches errOut; the broken line is never executed.
+		{"unclosed quote to errOut", `board create "oops`, ">", "missing closing quotation"},
 	}
 
 	for _, c := range cases {

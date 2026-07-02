@@ -61,8 +61,27 @@ func TestBoardCommandsDispatch(t *testing.T) {
 	t.Run("create with no name errors", func(t *testing.T) {
 		bc := newBoardCommands()
 		_, err := bc.dispatch([]string{"create"})
-		if err == nil || !strings.Contains(err.Error(), "requires a name") {
-			t.Errorf("got %v, want a 'requires a name' error", err)
+		if err == nil || !strings.Contains(err.Error(), "exactly one name") {
+			t.Errorf("got %v, want an 'exactly one name' error", err)
+		}
+	})
+
+	t.Run("create accepts a multi-word name as one token", func(t *testing.T) {
+		bc := newBoardCommands()
+		got, err := bc.dispatch([]string{"create", "general chat"})
+		if err != nil {
+			t.Fatalf("dispatch: %v", err)
+		}
+		if got != "#1 - general chat\n" {
+			t.Errorf("got %q, want %q", got, "#1 - general chat\n")
+		}
+	})
+
+	t.Run("create with extra arguments errors", func(t *testing.T) {
+		bc := newBoardCommands()
+		_, err := bc.dispatch([]string{"create", "general", "chat"})
+		if err == nil || !strings.Contains(err.Error(), "exactly one name") {
+			t.Errorf("got %v, want an 'exactly one name' error", err)
 		}
 	})
 

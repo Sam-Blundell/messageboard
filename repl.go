@@ -14,13 +14,6 @@ type repl struct {
 	errOut   io.Writer
 }
 
-// tokeniser splits an input line into whitespace-separated tokens. Blank or
-// whitespace-only input yields no tokens (via strings.Fields), so the driver can
-// treat it as "nothing typed" rather than dispatching an empty command.
-func tokeniser(input string) []string {
-	return strings.Fields(input)
-}
-
 func isQuit(tokens []string) bool {
 	if len(tokens) == 0 {
 		return false
@@ -33,7 +26,12 @@ func (r *repl) loop() {
 
 	fmt.Fprint(r.out, ">")
 	for scanner.Scan() {
-		tokens := tokeniser(scanner.Text())
+		tokens, err := tokenise(scanner.Text())
+		if err != nil {
+			fmt.Fprintln(r.errOut, "invalid input:", err)
+			fmt.Fprint(r.out, ">")
+			continue
+		}
 		if len(tokens) == 0 {
 			fmt.Fprint(r.out, ">")
 			continue

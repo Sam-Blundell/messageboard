@@ -53,6 +53,10 @@ means creating a thread needs a board ID, and creating a post needs a thread ID.
 Deletes cascade: removing a board removes its threads and their posts; removing
 a thread removes its posts.
 
+In the REPL, quote arguments that contain spaces — `board create "general chat"` —
+with either single or double quotes. In one-shot mode your shell's own quoting does
+the same job.
+
 Example REPL session:
 
 ```
