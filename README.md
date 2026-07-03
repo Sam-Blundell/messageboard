@@ -17,8 +17,15 @@ No external services or C toolchain needed. sqlite driver is the pure-Go
 
 ## Running
 
-REPL and oneshot mode both open an SQLite file named `database` in the working
-directory. Creating it if it doesn't exist.
+Both modes use an SQLite file named `database` in the working directory. On a
+fresh checkout, create and migrate it first:
+
+```sh
+go run . migrate
+```
+
+Every other command checks the schema before running and refuses with a
+"run 'messageboard migrate'" message if the database is missing or behind.
 
 **Interactive REPL** - just run with no arguments.
 
@@ -47,6 +54,7 @@ means creating a thread needs a board ID, and creating a post needs a thread ID.
 | `post create <thread-id> <body>`   | Create a post in a thread                         |
 | `post get <id>`                    | Fetch a single post by ID                         |
 | `post list`                        | List all posts (across all threads), oldest first |
+| `migrate`                          | Apply pending schema migrations (one-shot only)   |
 | `help`                             | Show help (placeholder for now)                   |
 | `quit`                             | Exit the REPL                                     |
 
@@ -77,7 +85,9 @@ hello world
 
 Each persistence adapter has a contract suite run against an in-memory SQLite DB.
 Each entity's commands are tested at the dispatch level with fake repositories.
-Command routing and the REPL loop are tested separately.
+Command routing and the REPL loop are tested separately. The migration runner
+has its own suite: history recording, history-based skipping, rollback
+atomicity, and refusal of divergent or newer-than-binary databases.
 
 ## Development Notes
 
@@ -85,16 +95,16 @@ A pre-push hook runs `gofmt`, `go vet`, and `go test -race`
 
 ## Layout
 
-| Path                         | Responsibility                                                    |
-| ---------------------------- | ----------------------------------------------------------------- |
-| `main.go`                    | Composition root — open DB, migrate, wire, run (REPL or one-shot) |
-| `repl.go`                    | The interactive REPL driver (read loop, tokeniser)                |
-| `commands.go`                | The command evaluator — routes `<entity> <action>` to a handler   |
-| `board_commands.go`          | Board commands + the `boardRepository` port                       |
-| `thread_commands.go`         | Thread commands + the `threadRepository` port                     |
-| `post_commands.go`           | Post commands + the `postRepository` port                         |
-| `board/`, `thread/`, `post/` | The `Board`/`Thread`/`Post` entities and their `SQLite` adapters  |
-| `storage/`                   | DB infrastructure — connection opening + ordered migrations       |
+| Path                         | Responsibility                                                   |
+| ---------------------------- | ---------------------------------------------------------------- |
+| `main.go`                    | Composition root — open DB, `migrate` or guard, wire, dispatch   |
+| `repl.go`                    | The interactive REPL driver (read loop, tokeniser)               |
+| `commands.go`                | The command evaluator — routes `<entity> <action>` to a handler  |
+| `board_commands.go`          | Board commands + the `boardRepository` port                      |
+| `thread_commands.go`         | Thread commands + the `threadRepository` port                    |
+| `post_commands.go`           | Post commands + the `postRepository` port                        |
+| `board/`, `thread/`, `post/` | The `Board`/`Thread`/`Post` entities and their `SQLite` adapters |
+| `storage/`                   | DB infrastructure — connection opening + ordered migrations      |
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the target architecture and the
 reasoning behind these boundaries.

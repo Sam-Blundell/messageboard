@@ -14,6 +14,13 @@ type Migration struct {
 	stmt string
 }
 
+// Migrations is the application's schema history, applied in order by Migrate
+// and recorded by name in the migration ledger table.
+//
+// The list is append-only. A migration that has shipped must never be edited,
+// renamed, or reordered — its name is its identity in every existing database,
+// and each database's applied history must remain a prefix of this list. To fix
+// a past migration, append a new one that corrects it.
 var Migrations = []Migration{
 	{name: "create board table", stmt: "CREATE TABLE IF NOT EXISTS board (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE)"},
 	{name: "create thread table", stmt: "CREATE TABLE IF NOT EXISTS thread (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, title TEXT, board_id INTEGER NOT NULL REFERENCES board(id) ON DELETE CASCADE, created_at INTEGER, bumped_at INTEGER)"},
@@ -34,6 +41,12 @@ func Open(path string) (*sql.DB, error) {
 	return db, nil
 }
 
+// Pending reports which of the given migrations have not yet been applied to
+// this database. It errors if the database's history has diverged from the
+// list, or records migrations the list doesn't contain (a newer binary's work).
+//
+// Pending never writes — it is safe as a startup guard. A database with no
+// migration history simply has every migration pending.
 func Pending(conn *sql.DB, migrations []Migration) ([]Migration, error) {
 	var migrationTable string
 
@@ -85,6 +98,7 @@ func Pending(conn *sql.DB, migrations []Migration) ([]Migration, error) {
 	return migrations[len(dbMigrations):], nil
 }
 
+// applyMigration applies and records one migration atomically: both or neither.
 func applyMigration(conn *sql.DB, migration Migration) error {
 	tx, err := conn.Begin()
 	if err != nil {
@@ -109,6 +123,10 @@ func applyMigration(conn *sql.DB, migration Migration) error {
 	return tx.Commit()
 }
 
+// Migrate brings the database up to date, applying unapplied migrations in
+// list order. A failure stops the run with an error naming the migration;
+// migrations applied before the failure stay applied, so a rerun resumes
+// rather than restarts.
 func Migrate(conn *sql.DB, migrations []Migration) error {
 	createMigrationsTable := "CREATE TABLE IF NOT EXISTS migration (name TEXT NOT NULL PRIMARY KEY, applied_at INTEGER NOT NULL)"
 

@@ -120,7 +120,7 @@ No transport talks to a repository or the DB directly.
 
 - **Uniform exact arity (decided 2026-07-03).** Every command takes an exact number
   of positional arguments; multi-word values are always quoted (`post create 1
-  "hello world"`). This supersedes the earlier identifier/free-text split (board
+"hello world"`). This supersedes the earlier identifier/free-text split (board
   names strict, post bodies / thread titles greedily joined), which was designed
   for a user-facing REPL and fell when the audience reframed: the TUI and web are
   the user faces, so the text grammar serves shell-literate admins and scripts,
@@ -132,6 +132,23 @@ No transport talks to a repository or the DB directly.
   (flags before positionals — stdlib `flag` convention). Same shape as the
   repository-pattern note: a different justification replacing the old one, not
   a reversal of reasoning.
+
+- **Migrations are explicit, versioned, and forward-only (decided 2026-07-03).**
+  Schema changes no longer run at startup. `migrate` is a one-shot-only admin
+  verb — the first of the planned admin/ops CLI, unavailable in the REPL by
+  placement (it's intercepted in `run()` before the command machinery exists) —
+  and every other invocation runs a read-only guard that refuses with an
+  actionable error when the schema is behind, diverged, or newer than the
+  binary. A `migration` ledger table (`name` PK + `applied_at`; chosen over
+  `PRAGMA user_version` for name-based integrity checks and audit familiarity)
+  records applied history, which must always be a **prefix** of the in-code
+  `Migrations` list — append-only, names immutable once shipped. Each migration
+  applies and records inside one transaction (both-or-neither; SQLite DDL rolls
+  back too). Forward-only: no down-migrations, deliberately. Pre-ledger
+  databases self-adopt — the original three creates are idempotent, so one
+  `migrate` no-ops them and records everything. Migrations remain an in-code
+  slice; file-based representation and fork-extension concerns are deliberately
+  deferred (see open questions).
 
 - **Service/handler layer earns its place with orchestration.** A dedicated service
   layer is justified when an operation spans multiple repositories or needs
@@ -156,12 +173,17 @@ time.Time` (set white-box in package tests — the functional-options version wa
 ## Current state — as of 2026-07-03
 
 - **`storage` package:** DB infrastructure. `Open(path)` (open + ping),
-  `Migrate(conn, []Migration)` (runs in order, names the failing migration),
-  `Migration` type, `Migrations` (the central ordered schema list for all entities),
-  and the `modernc.org/sqlite` driver blank-import (transitive — importing `storage`
-  registers the driver). Connections are created here and injected into adapters.
-  Tested (`-race`): happy path, idempotency of the real schema, fail-fast,
-  named-failure.
+  `Migrate(conn, []Migration)` (ledger-versioned: bootstraps the `migration`
+  table, verifies the applied history is a prefix of the list, applies the
+  pending tail one transaction per migration), `Pending(conn, []Migration)`
+  (the read-only guard/diagnosis: returns the pending tail, or errors on
+  divergent or newer-than-binary history; never creates anything), `Migration`
+  type, `Migrations` (the central append-only schema list), and the
+  `modernc.org/sqlite` driver blank-import (transitive — importing `storage`
+  registers the driver). Connections are created here and injected into
+  adapters. Tested (`-race`): recording, history-based skipping (proven with a
+  non-idempotent rerun), rollback atomicity, virgin and grandfathered
+  databases, divergence/newer refusal, fail-fast with named failures.
 - **Domain + persistence packages `post` and `board`:** each holds its entity
   (`Post`/`Board`), its domain errors, and a SQLite adapter (`NewSQLite(db)`). Post:
   `Create`/`ByID`/`List`, timestamps stored as Unix epoch seconds via a `scanPost`
@@ -181,8 +203,11 @@ time.Time` (set white-box in package tests — the functional-options version wa
   test suite — an invalid line goes to `errOut` and reprompts, never reaching
   `execute`) for interactive use, and a **one-shot** branch
   in `main`'s `run()` (`len(os.Args) > 1` → `execute(os.Args[1:])` → stdout/stderr +
-  exit code). `quit` is loop-control and never reaches `execute`. `main` is a thin
-  error boundary over `run() error`.
+  exit code). `quit` is loop-control and never reaches `execute` (or the DB).
+  `migrate` is intercepted in `run()` before the guard — admin verbs sit above
+  the guard, user verbs below it — and every other invocation refuses, with a
+  run-migrate message, if `storage.Pending` reports the schema behind. `main`
+  is a thin error boundary over `run() error`.
 - **Tests are layered to match the code:** adapter contract suites (in the entity
   packages); per-entity command tests at the `dispatch` level with fake repos
   (`post_commands_test.go`/`board_commands_test.go`); evaluator routing
@@ -221,6 +246,13 @@ transport (and the cli-as-package extraction).
 ---
 
 ## Open questions / deferred — as of 2026-06-09
+
+- **Third-party schema extension (only if the OSS story becomes real):** forks
+  adding their own migrations must not splice into core's history — the
+  append-only prefix invariant breaks on upstream merges. The mechanism would be
+  namespacing: extension migrations get their own sequence (own list, own
+  `source` column or table), applied after core's. Revisit the file-based
+  migration representation then, not before.
 
 - **Web rendering:** SSR HTML (leaning this for v0.1 — all-Go, one binary, simple)
   vs SPA + JSON API. The JSON API exists regardless; an SPA would just be another
