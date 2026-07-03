@@ -278,7 +278,8 @@ func TestPendingRejectsNewerDatabase(t *testing.T) {
 
 // A database that predates the ledger — schema present, no history — must be
 // adopted by a single Migrate: the shipped creates are IF NOT EXISTS, so they
-// no-op and everything gets recorded.
+// no-op and everything gets recorded. (Dated: once no pre-ledger databases
+// remain in the wild, this is a deletion candidate.)
 func TestMigrateAdoptsPreLedgerDatabase(t *testing.T) {
 	conn := newTestDB(t)
 	for _, m := range Migrations {
