@@ -148,7 +148,11 @@ No transport talks to a repository or the DB directly.
   databases self-adopt — the original three creates are idempotent, so one
   `migrate` no-ops them and records everything. Migrations remain an in-code
   slice; file-based representation and fork-extension concerns are deliberately
-  deferred (see open questions).
+  deferred (see open questions). Pre-release note (2026-07-04): the three
+  initial creates were rewritten in place — `NOT NULL` on all value columns,
+  non-empty `CHECK`s on `name`/`title`/`body` — and dev databases were reset
+  rather than rebuilt by migration. Permitted because nothing had shipped; the
+  append-only rule binds from first release.
 
 - **Service/handler layer earns its place with orchestration.** A dedicated service
   layer is justified when an operation spans multiple repositories or needs
@@ -189,7 +193,10 @@ time.Time` (set white-box in package tests — the functional-options version wa
   `Create`/`ByID`/`List`, timestamps stored as Unix epoch seconds via a `scanPost`
   helper, unexported `now` for white-box clock tests. Board: `Create`/`List`/`Delete`
   (delete uses `DELETE … RETURNING` to hand back the removed row), `name` is `UNIQUE`
-  (→ `ErrDuplicateName`). Each package has a black-box contract suite against a fresh
+  (→ `ErrDuplicateName`). The schema enforces what the code assumes: `NOT NULL`
+  on all value columns, non-empty `CHECK`s on `name`/`title`/`body` (violations
+  surface as raw constraint errors for now — friendly validation is deferred to
+  the service layer). Each package has a black-box contract suite against a fresh
   `:memory:` DB, plus (post) a timestamp round-trip test.
 - **Command system (`package main`):** entity-first and multi-entity.
   `commands.execute(tokens)` handles globals (`help`) then routes via `entityDispatch`

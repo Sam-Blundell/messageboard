@@ -44,7 +44,7 @@ func newTestDB(t *testing.T) *sql.DB {
 	if _, err := conn.Exec("INSERT INTO board (id, name) VALUES (?, ?)", testBoardID, "test board"); err != nil {
 		t.Fatalf("seeding board: %v", err)
 	}
-	if _, err := conn.Exec("INSERT INTO thread (id, title, board_id, created_at) VALUES (?, ?, ?, ?)", testThreadID, "test thread", testBoardID, 0); err != nil {
+	if _, err := conn.Exec("INSERT INTO thread (id, title, board_id, created_at, bumped_at) VALUES (?, ?, ?, ?, ?)", testThreadID, "test thread", testBoardID, 0, 0); err != nil {
 		t.Fatalf("seeding thread: %v", err)
 	}
 	t.Cleanup(func() { conn.Close() })
