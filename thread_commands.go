@@ -37,14 +37,14 @@ type threadCommands struct {
 }
 
 func (tc *threadCommands) handleCreate(tokens []string) (newThread thread.Thread, err error) {
-	if len(tokens) < 2 {
-		return thread.Thread{}, errors.New("usage: thread create <board-id> <title>")
+	if len(tokens) != 2 {
+		return thread.Thread{}, errors.New("usage: thread create <board-id> <title> (quote a title containing spaces)")
 	}
 	boardID, err := strconv.ParseInt(tokens[0], 10, 64)
 	if err != nil {
 		return thread.Thread{}, fmt.Errorf("board ID must be a number, got %q", tokens[0])
 	}
-	title := strings.Join(tokens[1:], " ")
+	title := tokens[1]
 	newThread, err = tc.threads.Create(boardID, title)
 	if err != nil {
 		return thread.Thread{}, err

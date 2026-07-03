@@ -57,7 +57,7 @@ func newPostCommands() *postCommands {
 func TestPostCommandsDispatch(t *testing.T) {
 	t.Run("create returns the new post", func(t *testing.T) {
 		pc := newPostCommands()
-		got, err := pc.dispatch([]string{"create", "1", "hello", "world"})
+		got, err := pc.dispatch([]string{"create", "1", "hello world"})
 		if err != nil {
 			t.Fatalf("dispatch: %v", err)
 		}
@@ -70,6 +70,14 @@ func TestPostCommandsDispatch(t *testing.T) {
 	t.Run("create with too few arguments returns usage", func(t *testing.T) {
 		pc := newPostCommands()
 		_, err := pc.dispatch([]string{"create"})
+		if err == nil || !strings.Contains(err.Error(), "usage") {
+			t.Errorf("got %v, want a usage error", err)
+		}
+	})
+
+	t.Run("create with extra arguments returns usage", func(t *testing.T) {
+		pc := newPostCommands()
+		_, err := pc.dispatch([]string{"create", "1", "hello", "world"})
 		if err == nil || !strings.Contains(err.Error(), "usage") {
 			t.Errorf("got %v, want a usage error", err)
 		}

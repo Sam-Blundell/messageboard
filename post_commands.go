@@ -53,14 +53,14 @@ func (pc *postCommands) handleGet(tokens []string) (fetched post.Post, err error
 }
 
 func (pc *postCommands) handleCreate(tokens []string) (newPost post.Post, err error) {
-	if len(tokens) < 2 {
-		return post.Post{}, errors.New("usage: post create <thread-id> <body>")
+	if len(tokens) != 2 {
+		return post.Post{}, errors.New("usage: post create <thread-id> <body> (quote a body containing spaces)")
 	}
 	threadID, err := strconv.ParseInt(tokens[0], 10, 64)
 	if err != nil {
 		return post.Post{}, fmt.Errorf("thread ID must be a number, got %q", tokens[0])
 	}
-	body := strings.Join(tokens[1:], " ")
+	body := tokens[1]
 	newPost, err = pc.posts.Create(threadID, body)
 	if err != nil {
 		return post.Post{}, err

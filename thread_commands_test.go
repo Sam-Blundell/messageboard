@@ -73,6 +73,14 @@ func TestThreadCommandsDispatch(t *testing.T) {
 		}
 	})
 
+	t.Run("create with extra arguments returns usage", func(t *testing.T) {
+		tc := newThreadCommands()
+		_, err := tc.dispatch([]string{"create", "1", "general", "chat"})
+		if err == nil || !strings.Contains(err.Error(), "usage") {
+			t.Errorf("got %v, want a usage error", err)
+		}
+	})
+
 	t.Run("create with a non-numeric board id errors", func(t *testing.T) {
 		tc := newThreadCommands()
 		_, err := tc.dispatch([]string{"create", "abc", "hi"})

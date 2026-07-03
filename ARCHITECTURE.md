@@ -118,6 +118,21 @@ No transport talks to a repository or the DB directly.
   future driver could catch it and prompt for a continuation line (bash-style
   multi-line input) instead of failing.
 
+- **Uniform exact arity (decided 2026-07-03).** Every command takes an exact number
+  of positional arguments; multi-word values are always quoted (`post create 1
+  "hello world"`). This supersedes the earlier identifier/free-text split (board
+  names strict, post bodies / thread titles greedily joined), which was designed
+  for a user-facing REPL and fell when the audience reframed: the TUI and web are
+  the user faces, so the text grammar serves shell-literate admins and scripts,
+  where exact arity is standard CLI behaviour. Bonus properties: a misplaced
+  trailing flag becomes a loud usage error instead of silently joining into
+  content; a command line copy-pastes verbatim between a script and a REPL
+  session; habitual quoting protects apostrophes and literal quote marks in
+  content. When flags arrive, arity applies to `fs.Args()` after flag parsing
+  (flags before positionals — stdlib `flag` convention). Same shape as the
+  repository-pattern note: a different justification replacing the old one, not
+  a reversal of reasoning.
+
 - **Service/handler layer earns its place with orchestration.** A dedicated service
   layer is justified when an operation spans multiple repositories or needs
   validation/orchestration (i.e. once boards/threads arrive). Until then, a thin
@@ -158,8 +173,9 @@ time.Time` (set white-box in package tests — the functional-options version wa
   `commands.execute(tokens)` handles globals (`help`) then routes via `entityDispatch`
   → the per-entity command module (`postCommands`/`boardCommands`). Each module owns
   its consumer-side port (`postRepository`/`boardRepository`), its `dispatch`, its
-  handlers, and its formatters. Routing is case-insensitive; args and bodies keep
-  their case.
+  handlers, and its formatters. Every command takes exact positional arity
+  (multi-word values arrive as one quoted token). Routing is case-insensitive;
+  args and bodies keep their case.
 - **Two drivers over the one evaluator:** the **`repl`** driver (read loop + `isQuit`
   in `repl.go`; the quote-aware `tokenise` in `tokeniser.go`, with its own table-driven
   test suite — an invalid line goes to `errOut` and reprompts, never reaching
