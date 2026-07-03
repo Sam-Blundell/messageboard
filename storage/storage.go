@@ -2,7 +2,9 @@ package storage
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
+	"time"
 
 	_ "modernc.org/sqlite"
 )
@@ -32,12 +34,99 @@ func Open(path string) (*sql.DB, error) {
 	return db, nil
 }
 
-func Migrate(conn *sql.DB, migrations []Migration) error {
-	for _, m := range migrations {
-		_, err := conn.Exec(m.stmt)
+func Pending(conn *sql.DB, migrations []Migration) ([]Migration, error) {
+	var migrationTable string
+
+	err := conn.QueryRow(
+		"SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?", "migration",
+	).Scan(&migrationTable)
+	if errors.Is(err, sql.ErrNoRows) {
+		return migrations, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("querying sqlite_master for migration table: %w", err)
+	}
+
+	rows, err := conn.Query("SELECT name FROM migration ORDER BY rowid")
+	if err != nil {
+		return nil, fmt.Errorf("error accessing migrations table: %w", err)
+	}
+	defer rows.Close()
+
+	var dbMigrations []string
+	for rows.Next() {
+		rowName := ""
+		err := rows.Scan(&rowName)
 		if err != nil {
-			return fmt.Errorf("error running %s migration: %w", m.name, err)
+			return nil, fmt.Errorf("error reading migration table: %w", err)
+		}
+		dbMigrations = append(dbMigrations, rowName)
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("error reading migration table: %w", err)
+	}
+
+	if len(dbMigrations) > len(migrations) {
+		return nil, errors.New("there are migrations in the DB that don't exist in the binary")
+	}
+
+	for i, name := range dbMigrations {
+		if name != migrations[i].name {
+			return nil, fmt.Errorf(
+				"migration history mismatch at %d: database has %q, binary has %q",
+				i,
+				name,
+				migrations[i].name,
+			)
 		}
 	}
+
+	return migrations[len(dbMigrations):], nil
+}
+
+func applyMigration(conn *sql.DB, migration Migration) error {
+	tx, err := conn.Begin()
+	if err != nil {
+		return fmt.Errorf("beginning transaction for %s: %w", migration.name, err)
+	}
+	defer tx.Rollback()
+
+	_, err = tx.Exec(migration.stmt)
+	if err != nil {
+		return fmt.Errorf("running %s migration: %w", migration.name, err)
+	}
+
+	_, err = tx.Exec(
+		"INSERT INTO migration (name, applied_at) VALUES (?, ?)",
+		migration.name,
+		time.Now().UTC().Unix(),
+	)
+	if err != nil {
+		return fmt.Errorf("recording %s migration: %w", migration.name, err)
+	}
+
+	return tx.Commit()
+}
+
+func Migrate(conn *sql.DB, migrations []Migration) error {
+	createMigrationsTable := "CREATE TABLE IF NOT EXISTS migration (name TEXT NOT NULL PRIMARY KEY, applied_at INTEGER NOT NULL)"
+
+	_, err := conn.Exec(createMigrationsTable)
+	if err != nil {
+		return fmt.Errorf("error creating migrations table: %w", err)
+	}
+
+	toApply, err := Pending(conn, migrations)
+	if err != nil {
+		return err
+	}
+	for _, m := range toApply {
+		err = applyMigration(conn, m)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
