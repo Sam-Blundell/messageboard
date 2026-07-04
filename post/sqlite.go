@@ -14,12 +14,20 @@ import (
 // consumer-defined postRepository port (declared in package main); callers only see
 // that interface and never this concrete type — except at the composition root,
 // which is the one place allowed to choose the backend.
+// DB is the database handle the adapter needs. Both *sql.DB and *sql.Tx
+// satisfy it, so the same adapter can run standalone or inside a transaction.
+type DB interface {
+	Exec(query string, args ...any) (sql.Result, error)
+	Query(query string, args ...any) (*sql.Rows, error)
+	QueryRow(query string, args ...any) *sql.Row
+}
+
 type SQLite struct {
-	db  *sql.DB
+	db  DB
 	now func() time.Time
 }
 
-func NewSQLite(db *sql.DB) *SQLite {
+func NewSQLite(db DB) *SQLite {
 	sqlite := &SQLite{
 		db:  db,
 		now: time.Now,

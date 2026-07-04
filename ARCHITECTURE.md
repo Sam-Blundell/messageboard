@@ -158,7 +158,9 @@ No transport talks to a repository or the DB directly.
   layer is justified when an operation spans multiple repositories or needs
   validation/orchestration (i.e. once boards/threads arrive). Until then, a thin
   transport over a single repository is honest; a pass-through service would be
-  ceremony.
+  ceremony. (Arrived 2026-07-04: `core/`, founded on the post+bump transaction —
+  see current state. The ceremony line ages out when a second transport lands:
+  pass-through reads then earn their place as the shared API every face calls.)
 
 - **Testability seams:** clock injection via the adapter's unexported `now func()
 time.Time` (set white-box in package tests — the functional-options version was
@@ -204,7 +206,16 @@ time.Time` (set white-box in package tests — the functional-options version wa
   its consumer-side port (`postRepository`/`boardRepository`), its `dispatch`, its
   handlers, and its formatters. Every command takes exact positional arity
   (multi-word values arrive as one quoted token). Routing is case-insensitive;
-  args and bodies keep their case.
+  args and bodies keep their case. Post creation routes through a `postCreator`
+  port satisfied by `core.Core`; reads keep their repo ports.
+- **Application core (`core/`):** the command hub — `Core` holds the `*sql.DB`;
+  `CreatePost` creates the post and bumps its thread to the post's creation
+  time in one transaction, constructing tx-scoped adapters via the entity
+  packages' `DB` interfaces (both `*sql.DB` and `*sql.Tx` satisfy them). Repo
+  ports inside core are deliberately deferred — its tests want the real
+  database, because the transaction is the subject. Tested (`:memory:`):
+  returns/persists the post, bumped_at-equals-PostTime, missing-thread
+  sentinel, rollback-on-bump-failure via a test-installed sabotage trigger.
 - **Two drivers over the one evaluator:** the **`repl`** driver (read loop + `isQuit`
   in `repl.go`; the quote-aware `tokenise` in `tokeniser.go`, with its own table-driven
   test suite — an invalid line goes to `errOut` and reprompts, never reaching
@@ -221,10 +232,12 @@ time.Time` (set white-box in package tests — the functional-options version wa
   (`commands_test.go`); and a small, fixed-size driver test for the loop and streams
   (`repl_test.go`). Per-command behaviour lives with its entity, so adding an entity
   doesn't grow a central table.
-- **Not yet:** no application handler/service layer — commands call repos directly
-  (honest until cross-entity orchestration arrives). `help` is a placeholder string.
-  The one-shot `run()` wiring is hand-verified, not unit-tested (it reads `os.Args`
-  and writes `os.Stdout`/`os.Stderr` directly).
+- **Not yet:** `help` is a placeholder string. Reads and single-repo writes still
+  call repos directly — they migrate into `core` as they earn it, or when the TUI
+  wants the shared API. The one-shot `run()` wiring is hand-verified, not
+  unit-tested — and it has accumulated real policy (quit above open, `migrate`
+  above the guard, guard above everything), so parameterising
+  `run(args, stdout, stderr)` is flagged as worth doing.
 - **Tooling:** pre-push hook (`gofmt` + `go vet` + `go test -race`); Delve for
   debugging.
 
@@ -238,8 +251,9 @@ time.Time` (set white-box in package tests — the functional-options version wa
 - **CLI command system:** ✅ done. Entity-first, multi-entity commands
   (`commands` evaluator + `postCommands`/`boardCommands`), a `repl` driver and a
   one-shot terminal mode sharing one `execute`, with layered tests.
-- **Domain:** add boards (and threads). New domain package(s) + likely the
-  service/handler layer for cross-repository orchestration.
+- **Domain:** ✅ done. Boards, threads, and posts, plus the service/handler layer
+  (`core/`, founded 2026-07-04 on the post+bump transaction — the hub the
+  transports ring will grow against).
 - **Transports:** Bubbletea TUI (a _second transport_ — motivates extracting the CLI
   into its own package and the multi-listener server); the HTTP server (JSON API +
   SSR web); then the separate remote `cli` client.

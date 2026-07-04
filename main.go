@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Sam-Blundell/messageboard/board"
+	"github.com/Sam-Blundell/messageboard/core"
 	"github.com/Sam-Blundell/messageboard/post"
 	"github.com/Sam-Blundell/messageboard/storage"
 	"github.com/Sam-Blundell/messageboard/thread"
@@ -58,9 +59,10 @@ func run() error {
 	posts := post.NewSQLite(db)
 	boards := board.NewSQLite(db)
 	threads := thread.NewSQLite(db)
+	hub := core.New(db)
 
 	cmds := &commands{
-		posts:   &postCommands{posts: posts},
+		posts:   &postCommands{creator: hub, posts: posts},
 		boards:  &boardCommands{boards: boards},
 		threads: &threadCommands{threads: threads},
 	}

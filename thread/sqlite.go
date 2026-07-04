@@ -10,12 +10,20 @@ import (
 	sqlite3 "modernc.org/sqlite/lib"
 )
 
+// DB is the database handle the adapter needs. Both *sql.DB and *sql.Tx
+// satisfy it, so the same adapter can run standalone or inside a transaction.
+type DB interface {
+	Exec(query string, args ...any) (sql.Result, error)
+	Query(query string, args ...any) (*sql.Rows, error)
+	QueryRow(query string, args ...any) *sql.Row
+}
+
 type SQLite struct {
-	db  *sql.DB
+	db  DB
 	now func() time.Time
 }
 
-func NewSQLite(db *sql.DB) *SQLite {
+func NewSQLite(db DB) *SQLite {
 	sqlite := &SQLite{
 		db:  db,
 		now: time.Now,
@@ -70,6 +78,23 @@ func (s *SQLite) Create(boardID int64, title string) (newThread Thread, err erro
 	}
 
 	return newThread, nil
+}
+
+// Bump sets the thread's bumped_at to the given time, moving it up its board's
+// latest-activity-first listing. Bumping a missing thread returns ErrNotFound.
+func (s *SQLite) Bump(id int64, at time.Time) error {
+	result, err := s.db.Exec("UPDATE thread SET bumped_at = ? WHERE id = ?", at.UTC().Unix(), id)
+	if err != nil {
+		return fmt.Errorf("error bumping thread %d: %w", id, err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("error bumping thread %d: %w", id, err)
+	}
+	if affected == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 func (s *SQLite) List(boardID int64) ([]Thread, error) {

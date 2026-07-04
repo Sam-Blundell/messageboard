@@ -12,8 +12,9 @@ import (
 )
 
 func newTestCommands() *commands {
+	f := &fakePostRepo{now: fixedClock}
 	return &commands{
-		posts:   &postCommands{posts: &fakePostRepo{now: fixedClock}},
+		posts:   &postCommands{creator: f, posts: f},
 		boards:  &boardCommands{boards: &fakeBoardRepo{}},
 		threads: &threadCommands{threads: &fakeThreadRepo{}},
 	}

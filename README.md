@@ -87,7 +87,9 @@ Each persistence adapter has a contract suite run against an in-memory SQLite DB
 Each entity's commands are tested at the dispatch level with fake repositories.
 Command routing and the REPL loop are tested separately. The migration runner
 has its own suite: history recording, history-based skipping, rollback
-atomicity, and refusal of divergent or newer-than-binary databases.
+atomicity, and refusal of divergent or newer-than-binary databases. The
+application core is tested against an in-memory database, including transaction
+rollback forced by a test-installed trigger.
 
 ## Development Notes
 
@@ -103,6 +105,7 @@ A pre-push hook runs `gofmt`, `go vet`, and `go test -race`
 | `board_commands.go`          | Board commands + the `boardRepository` port                      |
 | `thread_commands.go`         | Thread commands + the `threadRepository` port                    |
 | `post_commands.go`           | Post commands + the `postRepository` port                        |
+| `core/`                      | The application core — cross-entity command handlers (the hub)   |
 | `board/`, `thread/`, `post/` | The `Board`/`Thread`/`Post` entities and their `SQLite` adapters |
 | `storage/`                   | DB infrastructure — connection opening + ordered migrations      |
 

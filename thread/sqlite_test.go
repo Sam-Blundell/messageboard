@@ -139,6 +139,38 @@ func testRepository(t *testing.T, newRepo func() *SQLite) {
 		}
 	})
 
+	t.Run("Bump moves a thread up the listing and stores the given time", func(t *testing.T) {
+		repo := newRepo()
+		repo.now = func() time.Time { return time.Unix(100, 0) }
+		older := mustCreate(t, repo, testBoardID, "older")
+		repo.now = func() time.Time { return time.Unix(200, 0) }
+		newer := mustCreate(t, repo, testBoardID, "newer")
+
+		bumpTime := time.Unix(300, 0).UTC()
+		if err := repo.Bump(older.ID, bumpTime); err != nil {
+			t.Fatalf("Bump(%d): %v", older.ID, err)
+		}
+
+		got, err := repo.List(testBoardID)
+		if err != nil {
+			t.Fatalf("List: %v", err)
+		}
+		if got[0].ID != older.ID || got[1].ID != newer.ID {
+			t.Errorf("got order [%d, %d], want bumped-first [%d, %d]",
+				got[0].ID, got[1].ID, older.ID, newer.ID)
+		}
+		if !got[0].BumpedAt.Equal(bumpTime) {
+			t.Errorf("BumpedAt = %v, want %v", got[0].BumpedAt, bumpTime)
+		}
+	})
+
+	t.Run("Bump on a missing id returns ErrNotFound", func(t *testing.T) {
+		err := newRepo().Bump(999, time.Unix(100, 0))
+		if !errors.Is(err, ErrNotFound) {
+			t.Errorf("got %v, want ErrNotFound", err)
+		}
+	})
+
 	t.Run("Delete removes a thread and returns it", func(t *testing.T) {
 		repo := newRepo()
 		created := mustCreate(t, repo, testBoardID, "delete me")

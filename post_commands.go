@@ -9,8 +9,13 @@ import (
 	"github.com/Sam-Blundell/messageboard/post"
 )
 
+// postCreator is the port for creating posts — satisfied by core.Core, whose
+// CreatePost also bumps the owning thread atomically.
+type postCreator interface {
+	CreatePost(threadID int64, body string) (post.Post, error)
+}
+
 type postRepository interface {
-	Create(threadID int64, body string) (post.Post, error)
 	ByID(id int64) (post.Post, error)
 	List() ([]post.Post, error)
 }
@@ -34,7 +39,8 @@ func formatPosts(list []post.Post) (formattedList string) {
 }
 
 type postCommands struct {
-	posts postRepository
+	creator postCreator
+	posts   postRepository
 }
 
 func (pc *postCommands) handleGet(tokens []string) (fetched post.Post, err error) {
@@ -61,7 +67,7 @@ func (pc *postCommands) handleCreate(tokens []string) (newPost post.Post, err er
 		return post.Post{}, fmt.Errorf("thread ID must be a number, got %q", tokens[0])
 	}
 	body := tokens[1]
-	newPost, err = pc.posts.Create(threadID, body)
+	newPost, err = pc.creator.CreatePost(threadID, body)
 	if err != nil {
 		return post.Post{}, err
 	}

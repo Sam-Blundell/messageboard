@@ -27,7 +27,9 @@ type fakePostRepo struct {
 	createErr error
 }
 
-func (f *fakePostRepo) Create(threadID int64, body string) (post.Post, error) {
+// CreatePost satisfies the postCreator port (the fake stands in for core, so
+// command tests need no database and no real bump).
+func (f *fakePostRepo) CreatePost(threadID int64, body string) (post.Post, error) {
 	if f.createErr != nil {
 		return post.Post{}, f.createErr
 	}
@@ -51,7 +53,8 @@ func (f *fakePostRepo) List() ([]post.Post, error) {
 }
 
 func newPostCommands() *postCommands {
-	return &postCommands{posts: &fakePostRepo{now: fixedClock}}
+	f := &fakePostRepo{now: fixedClock}
+	return &postCommands{creator: f, posts: f}
 }
 
 func TestPostCommandsDispatch(t *testing.T) {
@@ -92,7 +95,8 @@ func TestPostCommandsDispatch(t *testing.T) {
 	})
 
 	t.Run("create propagates a store failure", func(t *testing.T) {
-		pc := &postCommands{posts: &fakePostRepo{createErr: errors.New("db down")}}
+		f := &fakePostRepo{createErr: errors.New("db down")}
+		pc := &postCommands{creator: f, posts: f}
 		_, err := pc.dispatch([]string{"create", "1", "x"})
 		if err == nil || !strings.Contains(err.Error(), "db down") {
 			t.Errorf("got %v, want the store error to propagate", err)

@@ -9,11 +9,19 @@ import (
 	sqlite3 "modernc.org/sqlite/lib"
 )
 
-type SQLite struct {
-	db *sql.DB
+// DB is the database handle the adapter needs. Both *sql.DB and *sql.Tx
+// satisfy it, so the same adapter can run standalone or inside a transaction.
+type DB interface {
+	Exec(query string, args ...any) (sql.Result, error)
+	Query(query string, args ...any) (*sql.Rows, error)
+	QueryRow(query string, args ...any) *sql.Row
 }
 
-func NewSQLite(db *sql.DB) *SQLite {
+type SQLite struct {
+	db DB
+}
+
+func NewSQLite(db DB) *SQLite {
 	sqlite := &SQLite{
 		db: db,
 	}
