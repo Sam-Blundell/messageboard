@@ -20,13 +20,13 @@ type postRepository interface {
 	List() ([]post.Post, error)
 }
 
-func formatPost(p post.Post) (formattedPost string) {
+func formatPost(p post.Post) string {
 	formattedTime := p.PostTime.Format("2006-01-02 15:04:05")
-	formattedPost = fmt.Sprintf("%s - %d\n%s\n", formattedTime, p.ID, p.Body)
-	return formattedPost
+	formatted := fmt.Sprintf("%s - %d\n%s\n", formattedTime, p.ID, p.Body)
+	return formatted
 }
 
-func formatPosts(list []post.Post) (formattedList string) {
+func formatPosts(list []post.Post) string {
 	if len(list) == 0 {
 		return "no posts yet\n"
 	}
@@ -34,8 +34,7 @@ func formatPosts(list []post.Post) (formattedList string) {
 	for _, p := range list {
 		formattedBuffer.WriteString(formatPost(p))
 	}
-	formattedList = formattedBuffer.String()
-	return formattedList
+	return formattedBuffer.String()
 }
 
 type postCommands struct {
@@ -43,22 +42,22 @@ type postCommands struct {
 	posts   postRepository
 }
 
-func (pc *postCommands) handleGet(tokens []string) (fetched post.Post, err error) {
+func (pc *postCommands) handleGet(tokens []string) (post.Post, error) {
 	if len(tokens) != 1 {
-		return post.Post{}, errors.New("post get expects an id number")
+		return post.Post{}, errors.New("usage: post get <post-id>")
 	}
 	postID, err := strconv.ParseInt(tokens[0], 10, 64)
 	if err != nil {
-		return post.Post{}, fmt.Errorf("parsing argument: %w", err)
+		return post.Post{}, fmt.Errorf("post ID must be a number, got %q", tokens[0])
 	}
-	fetched, err = pc.posts.ByID(postID)
+	fetched, err := pc.posts.ByID(postID)
 	if err != nil {
 		return post.Post{}, fmt.Errorf("can't get post %d: %w", postID, err)
 	}
 	return fetched, nil
 }
 
-func (pc *postCommands) handleCreate(tokens []string) (newPost post.Post, err error) {
+func (pc *postCommands) handleCreate(tokens []string) (post.Post, error) {
 	if len(tokens) != 2 {
 		return post.Post{}, errors.New("usage: post create <thread-id> <body> (quote a body containing spaces)")
 	}
@@ -67,21 +66,19 @@ func (pc *postCommands) handleCreate(tokens []string) (newPost post.Post, err er
 		return post.Post{}, fmt.Errorf("thread ID must be a number, got %q", tokens[0])
 	}
 	body := tokens[1]
-	newPost, err = pc.creator.CreatePost(threadID, body)
-	if err != nil {
-		return post.Post{}, err
-	}
-	return newPost, nil
+	newPost, err := pc.creator.CreatePost(threadID, body)
+	return newPost, err
 }
 
-func (pc *postCommands) handleList(tokens []string) (posts []post.Post, err error) {
+func (pc *postCommands) handleList(tokens []string) ([]post.Post, error) {
 	if len(tokens) != 0 {
-		return posts, errors.New("post list takes no arguments")
+		return nil, errors.New("post list takes no arguments")
 	}
-	return pc.posts.List()
+	posts, err := pc.posts.List()
+	return posts, err
 }
 
-func (pc *postCommands) dispatch(tokens []string) (result string, err error) {
+func (pc *postCommands) dispatch(tokens []string) (string, error) {
 	if len(tokens) == 0 {
 		return "", ErrMissingCmd
 	}
@@ -94,22 +91,19 @@ func (pc *postCommands) dispatch(tokens []string) (result string, err error) {
 		if err != nil {
 			return "", err
 		}
-		result = formatPost(fetched)
-		return result, nil
+		return formatPost(fetched), nil
 	case "create":
 		newPost, err := pc.handleCreate(tokens[1:])
 		if err != nil {
 			return "", err
 		}
-		result = formatPost(newPost)
-		return result, nil
+		return formatPost(newPost), nil
 	case "list":
 		posts, err := pc.handleList(tokens[1:])
 		if err != nil {
 			return "", err
 		}
-		result = formatPosts(posts)
-		return result, nil
+		return formatPosts(posts), nil
 	default:
 		return "", ErrUnknownCmd
 	}

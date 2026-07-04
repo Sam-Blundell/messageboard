@@ -100,7 +100,8 @@ A pre-push hook runs `gofmt`, `go vet`, and `go test -race`
 | Path                         | Responsibility                                                   |
 | ---------------------------- | ---------------------------------------------------------------- |
 | `main.go`                    | Composition root — open DB, `migrate` or guard, wire, dispatch   |
-| `repl.go`                    | The interactive REPL driver (read loop, tokeniser)               |
+| `repl.go`                    | The interactive REPL driver (read loop)                          |
+| `tokeniser.go`               | Shell-style quote-aware tokeniser for REPL lines                 |
 | `commands.go`                | The command evaluator — routes `<entity> <action>` to a handler  |
 | `board_commands.go`          | Board commands + the `boardRepository` port                      |
 | `thread_commands.go`         | Thread commands + the `threadRepository` port                    |

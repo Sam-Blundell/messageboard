@@ -126,8 +126,8 @@ func TestPostCommandsDispatch(t *testing.T) {
 	t.Run("get with a non-numeric id errors", func(t *testing.T) {
 		pc := newPostCommands()
 		_, err := pc.dispatch([]string{"get", "abc"})
-		if err == nil || !strings.Contains(err.Error(), "parsing argument") {
-			t.Errorf("got %v, want a parse error", err)
+		if err == nil || !strings.Contains(err.Error(), "must be a number") {
+			t.Errorf("got %v, want a 'must be a number' error", err)
 		}
 	})
 

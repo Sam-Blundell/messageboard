@@ -15,12 +15,12 @@ type threadRepository interface {
 	Delete(id int64) (thread.Thread, error)
 }
 
-func formatThread(t thread.Thread) (formattedThread string) {
-	formattedThread = fmt.Sprintf("#%d - %s\n", t.ID, t.Title)
-	return formattedThread
+func formatThread(t thread.Thread) string {
+	formatted := fmt.Sprintf("#%d - %s\n", t.ID, t.Title)
+	return formatted
 }
 
-func formatThreads(list []thread.Thread) (formattedList string) {
+func formatThreads(list []thread.Thread) string {
 	if len(list) == 0 {
 		return "no threads yet\n"
 	}
@@ -28,15 +28,14 @@ func formatThreads(list []thread.Thread) (formattedList string) {
 	for _, t := range list {
 		formattedBuffer.WriteString(formatThread(t))
 	}
-	formattedList = formattedBuffer.String()
-	return formattedList
+	return formattedBuffer.String()
 }
 
 type threadCommands struct {
 	threads threadRepository
 }
 
-func (tc *threadCommands) handleCreate(tokens []string) (newThread thread.Thread, err error) {
+func (tc *threadCommands) handleCreate(tokens []string) (thread.Thread, error) {
 	if len(tokens) != 2 {
 		return thread.Thread{}, errors.New("usage: thread create <board-id> <title> (quote a title containing spaces)")
 	}
@@ -45,14 +44,11 @@ func (tc *threadCommands) handleCreate(tokens []string) (newThread thread.Thread
 		return thread.Thread{}, fmt.Errorf("board ID must be a number, got %q", tokens[0])
 	}
 	title := tokens[1]
-	newThread, err = tc.threads.Create(boardID, title)
-	if err != nil {
-		return thread.Thread{}, err
-	}
-	return newThread, nil
+	newThread, err := tc.threads.Create(boardID, title)
+	return newThread, err
 }
 
-func (tc *threadCommands) handleList(tokens []string) (threadList []thread.Thread, err error) {
+func (tc *threadCommands) handleList(tokens []string) ([]thread.Thread, error) {
 	if len(tokens) != 1 {
 		return nil, errors.New("usage: thread list <board-id>")
 	}
@@ -60,14 +56,11 @@ func (tc *threadCommands) handleList(tokens []string) (threadList []thread.Threa
 	if err != nil {
 		return nil, fmt.Errorf("board ID must be a number, got %q", tokens[0])
 	}
-	threadList, err = tc.threads.List(boardID)
-	if err != nil {
-		return nil, err
-	}
-	return threadList, nil
+	threadList, err := tc.threads.List(boardID)
+	return threadList, err
 }
 
-func (tc *threadCommands) handleDelete(tokens []string) (deletedThread thread.Thread, err error) {
+func (tc *threadCommands) handleDelete(tokens []string) (thread.Thread, error) {
 	if len(tokens) != 1 {
 		return thread.Thread{}, errors.New("usage: thread delete <thread-id>")
 	}
@@ -75,11 +68,11 @@ func (tc *threadCommands) handleDelete(tokens []string) (deletedThread thread.Th
 	if err != nil {
 		return thread.Thread{}, fmt.Errorf("thread ID must be a number, got %q", tokens[0])
 	}
-	result, err := tc.threads.Delete(id)
-	return result, err
+	deleted, err := tc.threads.Delete(id)
+	return deleted, err
 }
 
-func (tc *threadCommands) dispatch(tokens []string) (result string, err error) {
+func (tc *threadCommands) dispatch(tokens []string) (string, error) {
 	if len(tokens) == 0 {
 		return "", ErrMissingCmd
 	}
@@ -92,22 +85,19 @@ func (tc *threadCommands) dispatch(tokens []string) (result string, err error) {
 		if err != nil {
 			return "", err
 		}
-		result = formatThread(newThread)
-		return result, nil
+		return formatThread(newThread), nil
 	case "list":
 		threadList, err := tc.handleList(tokens[1:])
 		if err != nil {
 			return "", err
 		}
-		result = formatThreads(threadList)
-		return result, nil
+		return formatThreads(threadList), nil
 	case "delete":
 		deletedThread, err := tc.handleDelete(tokens[1:])
 		if err != nil {
 			return "", err
 		}
-		result = "deleted thread " + formatThread(deletedThread)
-		return result, nil
+		return "deleted thread " + formatThread(deletedThread), nil
 	default:
 		return "", ErrUnknownCmd
 	}

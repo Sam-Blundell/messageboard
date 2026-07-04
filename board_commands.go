@@ -15,12 +15,12 @@ type boardRepository interface {
 	Delete(id int64) (board.Board, error)
 }
 
-func formatBoard(b board.Board) (formattedBoard string) {
-	formattedBoard = fmt.Sprintf("#%d - %s\n", b.ID, b.Name)
-	return formattedBoard
+func formatBoard(b board.Board) string {
+	formatted := fmt.Sprintf("#%d - %s\n", b.ID, b.Name)
+	return formatted
 }
 
-func formatBoards(list []board.Board) (formattedList string) {
+func formatBoards(list []board.Board) string {
 	if len(list) == 0 {
 		return "no boards yet\n"
 	}
@@ -28,50 +28,43 @@ func formatBoards(list []board.Board) (formattedList string) {
 	for _, b := range list {
 		formattedBuffer.WriteString(formatBoard(b))
 	}
-	formattedList = formattedBuffer.String()
-	return formattedList
+	return formattedBuffer.String()
 }
 
 type boardCommands struct {
 	boards boardRepository
 }
 
-func (bc *boardCommands) handleCreate(tokens []string) (newBoard board.Board, err error) {
+func (bc *boardCommands) handleCreate(tokens []string) (board.Board, error) {
 	if len(tokens) != 1 {
-		return board.Board{}, errors.New("board create requires exactly one name (quote names containing spaces)")
+		return board.Board{}, errors.New("usage: board create <name> (quote a name containing spaces)")
 	}
 	name := tokens[0]
-	newBoard, err = bc.boards.Create(name)
-	if err != nil {
-		return board.Board{}, err
-	}
-	return newBoard, nil
+	newBoard, err := bc.boards.Create(name)
+	return newBoard, err
 }
 
-func (bc *boardCommands) handleList(tokens []string) (boardList []board.Board, err error) {
+func (bc *boardCommands) handleList(tokens []string) ([]board.Board, error) {
 	if len(tokens) != 0 {
 		return nil, errors.New("board list takes no arguments")
 	}
-	boardList, err = bc.boards.List()
-	if err != nil {
-		return nil, err
-	}
-	return boardList, nil
+	boardList, err := bc.boards.List()
+	return boardList, err
 }
 
-func (bc *boardCommands) handleDelete(tokens []string) (deletedBoard board.Board, err error) {
+func (bc *boardCommands) handleDelete(tokens []string) (board.Board, error) {
 	if len(tokens) != 1 {
-		return board.Board{}, errors.New("board delete requires an ID")
+		return board.Board{}, errors.New("usage: board delete <board-id>")
 	}
 	id, err := strconv.ParseInt(tokens[0], 10, 64)
 	if err != nil {
-		return board.Board{}, errors.New("board delete requires a numeric ID")
+		return board.Board{}, fmt.Errorf("board ID must be a number, got %q", tokens[0])
 	}
-	result, err := bc.boards.Delete(id)
-	return result, err
+	deleted, err := bc.boards.Delete(id)
+	return deleted, err
 }
 
-func (bc *boardCommands) dispatch(tokens []string) (result string, err error) {
+func (bc *boardCommands) dispatch(tokens []string) (string, error) {
 	if len(tokens) == 0 {
 		return "", ErrMissingCmd
 	}
@@ -84,22 +77,19 @@ func (bc *boardCommands) dispatch(tokens []string) (result string, err error) {
 		if err != nil {
 			return "", err
 		}
-		result = formatBoard(newBoard)
-		return result, nil
+		return formatBoard(newBoard), nil
 	case "list":
 		boardList, err := bc.handleList(tokens[1:])
 		if err != nil {
 			return "", err
 		}
-		result = formatBoards(boardList)
-		return result, nil
+		return formatBoards(boardList), nil
 	case "delete":
 		deletedBoard, err := bc.handleDelete(tokens[1:])
 		if err != nil {
 			return "", err
 		}
-		result = "deleted board " + formatBoard(deletedBoard)
-		return result, nil
+		return "deleted board " + formatBoard(deletedBoard), nil
 	default:
 		return "", ErrUnknownCmd
 	}

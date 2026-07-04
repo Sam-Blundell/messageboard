@@ -296,5 +296,8 @@ transport (and the cli-as-package extraction).
   adapters.
 - **Inject dependencies** from the composition root (`main`); avoid globals.
 - **Name for the call site** (avoid stutter; package context replaces prefixes).
+- **Intermediates yes, ceremony no.** Capture results in named locals before
+  returning (breakpoint-friendly for Delve), but no named result parameters and
+  no error-relay branches that return the same pair on both paths.
 - **Keep this doc at the decisions/why altitude;** let the code be the implementation
   detail.

@@ -11,46 +11,31 @@ type commands struct {
 	threads *threadCommands
 }
 
-func (c *commands) execute(tokens []string) (result string, err error) {
-	tokenLen := len(tokens)
-	if tokenLen == 0 {
-		return "", ErrMissingCmd
-	}
-	if strings.ToLower(tokens[0]) == "help" {
-		help := "help coming soon"
-		return help, nil
-	}
-	result, err = c.entityDispatch(tokens)
-	return result, err
-}
-
-func (c *commands) entityDispatch(tokens []string) (result string, err error) {
+func (c *commands) execute(tokens []string) (string, error) {
 	if len(tokens) == 0 {
 		return "", ErrMissingCmd
 	}
+	if strings.ToLower(tokens[0]) == "help" {
+		return "help coming soon", nil
+	}
+	result, err := c.entityDispatch(tokens)
+	return result, err
+}
+
+func (c *commands) entityDispatch(tokens []string) (string, error) {
 	entity := tokens[0]
 
 	switch strings.ToLower(entity) {
 	case "board":
 		result, err := c.boards.dispatch(tokens[1:])
-		if err != nil {
-			return "", err
-		}
-		return result, nil
+		return result, err
 	case "post":
 		result, err := c.posts.dispatch(tokens[1:])
-		if err != nil {
-			return "", err
-		}
-		return result, nil
+		return result, err
 	case "thread":
 		result, err := c.threads.dispatch(tokens[1:])
-		if err != nil {
-			return "", err
-		}
-		return result, nil
+		return result, err
 	default:
-		err = fmt.Errorf("unknown command: %s", entity)
-		return "", err
+		return "", fmt.Errorf("unknown command: %s", entity)
 	}
 }

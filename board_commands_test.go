@@ -61,8 +61,8 @@ func TestBoardCommandsDispatch(t *testing.T) {
 	t.Run("create with no name errors", func(t *testing.T) {
 		bc := newBoardCommands()
 		_, err := bc.dispatch([]string{"create"})
-		if err == nil || !strings.Contains(err.Error(), "exactly one name") {
-			t.Errorf("got %v, want an 'exactly one name' error", err)
+		if err == nil || !strings.Contains(err.Error(), "usage") {
+			t.Errorf("got %v, want a usage error", err)
 		}
 	})
 
@@ -80,8 +80,8 @@ func TestBoardCommandsDispatch(t *testing.T) {
 	t.Run("create with extra arguments errors", func(t *testing.T) {
 		bc := newBoardCommands()
 		_, err := bc.dispatch([]string{"create", "general", "chat"})
-		if err == nil || !strings.Contains(err.Error(), "exactly one name") {
-			t.Errorf("got %v, want an 'exactly one name' error", err)
+		if err == nil || !strings.Contains(err.Error(), "usage") {
+			t.Errorf("got %v, want a usage error", err)
 		}
 	})
 
@@ -147,16 +147,16 @@ func TestBoardCommandsDispatch(t *testing.T) {
 	t.Run("delete with a non-numeric id errors", func(t *testing.T) {
 		bc := newBoardCommands()
 		_, err := bc.dispatch([]string{"delete", "abc"})
-		if err == nil || !strings.Contains(err.Error(), "numeric ID") {
-			t.Errorf("got %v, want a numeric-id error", err)
+		if err == nil || !strings.Contains(err.Error(), "must be a number") {
+			t.Errorf("got %v, want a 'must be a number' error", err)
 		}
 	})
 
 	t.Run("delete with no id errors", func(t *testing.T) {
 		bc := newBoardCommands()
 		_, err := bc.dispatch([]string{"delete"})
-		if err == nil || !strings.Contains(err.Error(), "requires an ID") {
-			t.Errorf("got %v, want an id-required error", err)
+		if err == nil || !strings.Contains(err.Error(), "usage") {
+			t.Errorf("got %v, want a usage error", err)
 		}
 	})
 
