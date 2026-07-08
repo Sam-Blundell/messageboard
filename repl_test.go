@@ -37,7 +37,7 @@ func TestReplLoop(t *testing.T) {
 		// A successful command's result reaches out.
 		{"result to out", "post create 1 hello", "hello", ""},
 		// State persists across the session: a second command sees the first's effect.
-		{"session state persists", "post create 1 hello\npost list", "hello", ""},
+		{"session state persists", "post create 1 hello\npost list 1", "hello", ""},
 		// Blank input just reprompts — nothing on errOut.
 		{"blank line is silent", "   ", ">", ""},
 		// An error reaches errOut (and must not leak into out).

@@ -17,7 +17,7 @@ type postCreator interface {
 
 type postRepository interface {
 	ByID(id int64) (post.Post, error)
-	List() ([]post.Post, error)
+	List(threadID int64) ([]post.Post, error)
 }
 
 func formatPost(p post.Post) string {
@@ -71,10 +71,14 @@ func (pc *postCommands) handleCreate(tokens []string) (post.Post, error) {
 }
 
 func (pc *postCommands) handleList(tokens []string) ([]post.Post, error) {
-	if len(tokens) != 0 {
-		return nil, errors.New("post list takes no arguments")
+	if len(tokens) != 1 {
+		return nil, errors.New("usage: post list <thread-id>")
 	}
-	posts, err := pc.posts.List()
+	threadID, err := strconv.ParseInt(tokens[0], 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("thread ID must be a number, got %q", tokens[0])
+	}
+	posts, err := pc.posts.List(threadID)
 	return posts, err
 }
 

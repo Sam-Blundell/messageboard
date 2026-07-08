@@ -95,8 +95,8 @@ func (s *SQLite) ByID(id int64) (Post, error) {
 	return p, err
 }
 
-func (s *SQLite) List() ([]Post, error) {
-	rows, err := s.db.Query("SELECT id, body, thread_id, created_at FROM post ORDER BY id")
+func (s *SQLite) List(threadID int64) ([]Post, error) {
+	rows, err := s.db.Query("SELECT id, body, thread_id, created_at FROM post WHERE thread_id = ? ORDER BY id", threadID)
 	if err != nil {
 		return []Post{}, err
 	}

@@ -114,12 +114,12 @@ func TestCreatePostOnMissingThread(t *testing.T) {
 		t.Errorf("got %v, want post.ErrThreadNotFound", err)
 	}
 
-	posts, err := post.NewSQLite(conn).List()
-	if err != nil {
-		t.Fatalf("List: %v", err)
+	var count int
+	if err := conn.QueryRow("SELECT COUNT(*) FROM post").Scan(&count); err != nil {
+		t.Fatalf("counting posts: %v", err)
 	}
-	if len(posts) != 0 {
-		t.Errorf("got %d posts persisted, want 0", len(posts))
+	if count != 0 {
+		t.Errorf("got %d posts persisted, want 0", count)
 	}
 }
 
@@ -145,12 +145,12 @@ func TestCreatePostRollsBackWhenBumpFails(t *testing.T) {
 		t.Fatalf("got %v, want the sabotage error from the bump step", err)
 	}
 
-	posts, err := post.NewSQLite(conn).List()
-	if err != nil {
-		t.Fatalf("List: %v", err)
+	var count int
+	if err := conn.QueryRow("SELECT COUNT(*) FROM post").Scan(&count); err != nil {
+		t.Fatalf("counting posts: %v", err)
 	}
-	if len(posts) != 0 {
-		t.Errorf("got %d posts persisted, want 0 — the insert was not rolled back", len(posts))
+	if count != 0 {
+		t.Errorf("got %d posts persisted, want 0 — the insert was not rolled back", count)
 	}
 
 }

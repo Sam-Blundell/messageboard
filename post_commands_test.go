@@ -48,8 +48,14 @@ func (f *fakePostRepo) ByID(id int64) (post.Post, error) {
 	return post.Post{}, post.ErrNotFound
 }
 
-func (f *fakePostRepo) List() ([]post.Post, error) {
-	return f.posts, nil
+func (f *fakePostRepo) List(threadID int64) ([]post.Post, error) {
+	filtered := []post.Post{}
+	for _, p := range f.posts {
+		if p.ThreadID == threadID {
+			filtered = append(filtered, p)
+		}
+	}
+	return filtered, nil
 }
 
 func newPostCommands() *postCommands {
@@ -133,7 +139,7 @@ func TestPostCommandsDispatch(t *testing.T) {
 
 	t.Run("list of an empty repo", func(t *testing.T) {
 		pc := newPostCommands()
-		got, err := pc.dispatch([]string{"list"})
+		got, err := pc.dispatch([]string{"list", "1"})
 		if err != nil {
 			t.Fatalf("dispatch: %v", err)
 		}
@@ -142,16 +148,36 @@ func TestPostCommandsDispatch(t *testing.T) {
 		}
 	})
 
-	t.Run("list returns all posts", func(t *testing.T) {
+	t.Run("list returns the thread's posts", func(t *testing.T) {
 		pc := newPostCommands()
 		pc.dispatch([]string{"create", "1", "a"})
 		pc.dispatch([]string{"create", "1", "b"})
-		got, err := pc.dispatch([]string{"list"})
+		pc.dispatch([]string{"create", "2", "elsewhere"})
+		got, err := pc.dispatch([]string{"list", "1"})
 		if err != nil {
 			t.Fatalf("dispatch: %v", err)
 		}
 		if !strings.Contains(got, "- 1\na\n") || !strings.Contains(got, "- 2\nb\n") {
-			t.Errorf("got %q, want both posts", got)
+			t.Errorf("got %q, want thread 1's posts a and b", got)
+		}
+		if strings.Contains(got, "elsewhere") {
+			t.Errorf("got %q, want thread 2's post excluded", got)
+		}
+	})
+
+	t.Run("list without a thread id returns usage", func(t *testing.T) {
+		pc := newPostCommands()
+		_, err := pc.dispatch([]string{"list"})
+		if err == nil || !strings.Contains(err.Error(), "usage") {
+			t.Errorf("got %v, want a usage error", err)
+		}
+	})
+
+	t.Run("list with a non-numeric thread id errors", func(t *testing.T) {
+		pc := newPostCommands()
+		_, err := pc.dispatch([]string{"list", "abc"})
+		if err == nil || !strings.Contains(err.Error(), "must be a number") {
+			t.Errorf("got %v, want a 'must be a number' error", err)
 		}
 	})
 

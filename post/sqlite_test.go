@@ -10,8 +10,9 @@ import (
 )
 
 const (
-	testBoardID  int64 = 1
-	testThreadID int64 = 1
+	testBoardID   int64 = 1
+	testThreadID  int64 = 1
+	testThreadID2 int64 = 2
 )
 
 // mustCreate creates a post in the seeded test thread and fails on error.
@@ -39,13 +40,17 @@ func newTestDB(t *testing.T) *sql.DB {
 		t.Fatalf("migrating test db: %v", err)
 	}
 	// A post needs a parent thread, which needs a parent board (both FKs are
-	// enforced). Seed that board -> thread chain so posts have a thread to attach
-	// to; testThreadID is the thread every seeded post belongs to.
+	// enforced). Seed a board with two threads: testThreadID is where mustCreate
+	// attaches posts; testThreadID2 exists so the filtering test can prove List
+	// scopes its results to a single thread.
 	if _, err := conn.Exec("INSERT INTO board (id, name) VALUES (?, ?)", testBoardID, "test board"); err != nil {
 		t.Fatalf("seeding board: %v", err)
 	}
 	if _, err := conn.Exec("INSERT INTO thread (id, title, board_id, created_at, bumped_at) VALUES (?, ?, ?, ?, ?)", testThreadID, "test thread", testBoardID, 0, 0); err != nil {
 		t.Fatalf("seeding thread: %v", err)
+	}
+	if _, err := conn.Exec("INSERT INTO thread (id, title, board_id, created_at, bumped_at) VALUES (?, ?, ?, ?, ?)", testThreadID2, "other thread", testBoardID, 0, 0); err != nil {
+		t.Fatalf("seeding second thread: %v", err)
 	}
 	t.Cleanup(func() { conn.Close() })
 	return conn
@@ -55,7 +60,7 @@ func newTestDB(t *testing.T) *sql.DB {
 // newRepo builds a fresh, empty adapter for each subtest.
 func testRepository(t *testing.T, newRepo func() *SQLite) {
 	t.Run("empty repo lists nothing", func(t *testing.T) {
-		got, err := newRepo().List()
+		got, err := newRepo().List(testThreadID)
 		if err != nil {
 			t.Fatalf("List: %v", err)
 		}
@@ -130,7 +135,7 @@ func testRepository(t *testing.T, newRepo func() *SQLite) {
 		mustCreate(t, repo, "b")
 		mustCreate(t, repo, "c")
 
-		got, err := repo.List()
+		got, err := repo.List(testThreadID)
 		if err != nil {
 			t.Fatalf("List: %v", err)
 		}
@@ -141,6 +146,28 @@ func testRepository(t *testing.T, newRepo func() *SQLite) {
 			if got[i-1].ID >= got[i].ID {
 				t.Errorf("not sorted ascending: index %d has ID %d, index %d has ID %d",
 					i-1, got[i-1].ID, i, got[i].ID)
+			}
+		}
+	})
+
+	t.Run("List returns only the given thread's posts", func(t *testing.T) {
+		repo := newRepo()
+		mustCreate(t, repo, "first in thread 1")
+		mustCreate(t, repo, "second in thread 1")
+		if _, err := repo.Create(testThreadID2, "in thread 2"); err != nil {
+			t.Fatalf("Create in thread %d: %v", testThreadID2, err)
+		}
+
+		got, err := repo.List(testThreadID)
+		if err != nil {
+			t.Fatalf("List: %v", err)
+		}
+		if len(got) != 2 {
+			t.Fatalf("got %d posts, want 2 — only thread %d's posts", len(got), testThreadID)
+		}
+		for _, p := range got {
+			if p.ThreadID != testThreadID {
+				t.Errorf("List(%d) returned a post from thread %d", testThreadID, p.ThreadID)
 			}
 		}
 	})
