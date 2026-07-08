@@ -53,7 +53,7 @@ means creating a thread needs a board ID, and creating a post needs a thread ID.
 | `thread delete <id>`               | Delete a thread and its posts                     |
 | `post create <thread-id> <body>`   | Create a post in a thread                         |
 | `post get <id>`                    | Fetch a single post by ID                         |
-| `post list`                        | List all posts (across all threads), oldest first |
+| `post list <thread-id>`            | List a thread's posts, oldest first               |
 | `migrate`                          | Apply pending schema migrations (one-shot only)   |
 | `help`                             | Show help (placeholder for now)                   |
 | `quit`                             | Exit the REPL                                     |

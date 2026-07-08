@@ -123,6 +123,10 @@ func TestCreatePostOnMissingThread(t *testing.T) {
 	}
 }
 
+// The other half of both-or-neither: the post insert succeeds, the bump fails,
+// and the insert must be rolled back. The bump can't fail naturally (the FK has
+// already proven the thread exists), so the test sabotages the update with a
+// trigger — a synthetic trigger for the real class of mid-transaction failures.
 func TestCreatePostRollsBackWhenBumpFails(t *testing.T) {
 	c, conn := newTestCore(t)
 
@@ -152,5 +156,4 @@ func TestCreatePostRollsBackWhenBumpFails(t *testing.T) {
 	if count != 0 {
 		t.Errorf("got %d posts persisted, want 0 — the insert was not rolled back", count)
 	}
-
 }
