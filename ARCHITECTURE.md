@@ -104,7 +104,11 @@ No transport talks to a repository or the DB directly.
   (e.g. `board create --description … --nsfw`). Consistency note: `execute` is
   shared across the two _cli modes_, not the cross-transport hub — these handlers
   are transport-level (they call repos directly), and the one-shot user CLI is the
-  "may fade" in-process user face, not the permanent admin one.
+  "may fade" in-process user face, not the permanent admin one. (Retired in part
+  2026-07-10: the REPL and its tokeniser were deleted when the TUI ring opened —
+  scaffolding removed on schedule; git history holds the code,
+  `learning-notes/` the lessons. One-shot argv is now the only text face, and
+  `quit` left with the loop it controlled.)
 
 - **REPL tokeniser implements shell word-splitting (decided 2026-07-03).** One-shot
   mode's tokens come from the shell, so the REPL must produce identical tokens for
@@ -116,7 +120,9 @@ No transport talks to a repository or the DB directly.
   string literals — was considered and rejected for exactly that divergence. An
   unterminated quote is an error: the named sentinel `ErrUnclosedQuotes`, so a
   future driver could catch it and prompt for a continuation line (bash-style
-  multi-line input) instead of failing.
+  multi-line input) instead of failing. (Retired with the REPL 2026-07-10; the
+  grammar decisions stand for any future line-based input — see
+  `learning-notes/line-grammar-design.md`.)
 
 - **Uniform exact arity (decided 2026-07-03).** Every command takes an exact number
   of positional arguments; multi-word values are always quoted (`post create 1
@@ -165,11 +171,10 @@ No transport talks to a repository or the DB directly.
 - **Testability seams:** clock injection via the adapter's unexported `now func()
 time.Time` (set white-box in package tests — the functional-options version was
   dropped when persistence went SQL-only); fake repositories
-  (`fakePostRepo`/`fakeBoardRepo`) implementing the consumer ports for command and
-  driver tests (no DB); injected `io.Reader`/`io.Writer`
-  on transports (scripted input + captured buffers); a `:memory:` SQLite +
-  `storage.Migrate` for the adapter's own contract suite. Dependencies injected from
-  `main` (the composition root); no globals.
+  (`fakePostRepo`/`fakeBoardRepo`) implementing the consumer ports for command
+  tests (no DB); a `:memory:` SQLite + `storage.Migrate` for the adapter contract
+  suites and core's transaction tests. Dependencies injected from `main` (the
+  composition root); no globals.
 
 - **Defer abstractions until the second use case** — interfaces, packages, and the
   service layer appear when there's a concrete reason, not on spec.
@@ -216,28 +221,25 @@ time.Time` (set white-box in package tests — the functional-options version wa
   database, because the transaction is the subject. Tested (`:memory:`):
   returns/persists the post, bumped_at-equals-PostTime, missing-thread
   sentinel, rollback-on-bump-failure via a test-installed sabotage trigger.
-- **Two drivers over the one evaluator:** the **`repl`** driver (read loop + `isQuit`
-  in `repl.go`; the quote-aware `tokenise` in `tokeniser.go`, with its own table-driven
-  test suite — an invalid line goes to `errOut` and reprompts, never reaching
-  `execute`) for interactive use, and a **one-shot** branch
-  in `main`'s `run()` (`len(os.Args) > 1` → `execute(os.Args[1:])` → stdout/stderr +
-  exit code). `quit` is loop-control and never reaches `execute` (or the DB).
-  `migrate` is intercepted in `run()` before the guard — admin verbs sit above
-  the guard, user verbs below it — and every other invocation refuses, with a
-  run-migrate message, if `storage.Pending` reports the schema behind. `main`
-  is a thin error boundary over `run() error`.
+- **One driver over the evaluator:** the **one-shot** path in `main`'s `run()` —
+  `execute(os.Args[1:])` → stdout/stderr + exit code; bare invocation prints
+  usage (and will become the TUI when it lands). The REPL and tokeniser were
+  deleted 2026-07-10 (see the retired decision entries). `migrate` is
+  intercepted in `run()` before the guard — admin verbs sit above the guard,
+  user verbs below it — and every other invocation refuses, with a run-migrate
+  message, if `storage.Pending` reports the schema behind. `main` is a thin
+  error boundary over `run() error`.
 - **Tests are layered to match the code:** adapter contract suites (in the entity
   packages); per-entity command tests at the `dispatch` level with fake repos
   (`post_commands_test.go`/`board_commands_test.go`); evaluator routing
-  (`commands_test.go`); and a small, fixed-size driver test for the loop and streams
-  (`repl_test.go`). Per-command behaviour lives with its entity, so adding an entity
-  doesn't grow a central table.
+  (`commands_test.go`); core's DB-backed transaction suite. Per-command behaviour
+  lives with its entity, so adding an entity doesn't grow a central table.
 - **Not yet:** `help` is a placeholder string. Reads and single-repo writes still
   call repos directly — they migrate into `core` as they earn it, or when the TUI
-  wants the shared API. The one-shot `run()` wiring is hand-verified, not
-  unit-tested — and it has accumulated real policy (quit above open, `migrate`
-  above the guard, guard above everything), so parameterising
-  `run(args, stdout, stderr)` is flagged as worth doing.
+  wants the shared API. The `run()` wiring is hand-verified, not unit-tested —
+  and it has accumulated real policy (usage before open, `migrate` above the
+  guard, guard above everything), so parameterising `run(args, stdout, stderr)`
+  is flagged as worth doing.
 - **Tooling:** pre-push hook (`gofmt` + `go vet` + `go test -race`); Delve for
   debugging.
 
@@ -249,8 +251,9 @@ time.Time` (set white-box in package tests — the functional-options version wa
   SQLite alone (in-memory/file dropped). The `storage` infra package, the
   `post.SQLite` adapter, and the consumer-side `postRepository` port are in place.
 - **CLI command system:** ✅ done. Entity-first, multi-entity commands
-  (`commands` evaluator + `postCommands`/`boardCommands`), a `repl` driver and a
-  one-shot terminal mode sharing one `execute`, with layered tests.
+  (`commands` evaluator + `postCommands`/`boardCommands`) driven one-shot from
+  argv, with layered tests. (Originally also a REPL driver sharing the same
+  `execute`; retired 2026-07-10 when the TUI ring opened.)
 - **Domain:** ✅ done. Boards, threads, and posts, plus the service/handler layer
   (`core/`, founded 2026-07-04 on the post+bump transaction — the hub the
   transports ring will grow against).

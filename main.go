@@ -14,8 +14,8 @@ import (
 )
 
 func run() error {
-	if len(os.Args) > 1 && isQuit(os.Args[1:]) {
-		return nil
+	if len(os.Args) < 2 {
+		return errors.New("usage: messageboard <command> [args] — run 'messageboard help' for commands")
 	}
 	db, err := storage.Open("database")
 	if err != nil {
@@ -23,7 +23,7 @@ func run() error {
 	}
 	defer db.Close()
 
-	if len(os.Args) > 1 && strings.ToLower(os.Args[1]) == "migrate" {
+	if strings.ToLower(os.Args[1]) == "migrate" {
 		if len(os.Args) != 2 {
 			return errors.New("usage: messageboard migrate (takes no arguments)")
 		}
@@ -67,22 +67,11 @@ func run() error {
 		threads: &threadCommands{threads: threads},
 	}
 
-	if len(os.Args) > 1 {
-		result, err := cmds.execute(os.Args[1:])
-		if err != nil {
-			return err
-		}
-		fmt.Fprint(os.Stdout, result)
-		return nil
+	result, err := cmds.execute(os.Args[1:])
+	if err != nil {
+		return err
 	}
-
-	r := &repl{
-		commands: cmds,
-		in:       os.Stdin,
-		out:      os.Stdout,
-		errOut:   os.Stderr,
-	}
-	r.loop()
+	fmt.Fprint(os.Stdout, result)
 	return nil
 }
 

@@ -2,8 +2,8 @@
 
 A tiny messageboard backend, written in Go. It manages **boards**, the
 **threads** on them, and the **posts** within those threads, persisted to
-SQLite, and runs two ways: as an interactive REPL, or as a one-shot terminal
-command.
+SQLite, driven by a one-shot terminal command. (A Bubbletea TUI is in the
+works as the user-facing interface.)
 
 This is primarily a learning project. Design decisions and reasoning live in
 [ARCHITECTURE.md](ARCHITECTURE.md)
@@ -27,10 +27,7 @@ go run . migrate
 Every other command checks the schema before running and refuses with a
 "run 'messageboard migrate'" message if the database is missing or behind.
 
-**Interactive REPL** - just run with no arguments.
-
-**One-shot** — pass a command as argument; it runs once and exits with status
-code.
+Pass a command as arguments; it runs once and exits with a status code.
 
 ```sh
 go run . post create 1 "hello world"
@@ -54,38 +51,35 @@ means creating a thread needs a board ID, and creating a post needs a thread ID.
 | `post create <thread-id> <body>`   | Create a post in a thread                         |
 | `post get <id>`                    | Fetch a single post by ID                         |
 | `post list <thread-id>`            | List a thread's posts, oldest first               |
-| `migrate`                          | Apply pending schema migrations (one-shot only)   |
+| `migrate`                          | Apply pending schema migrations                   |
 | `help`                             | Show help (placeholder for now)                   |
-| `quit`                             | Exit the REPL                                     |
 
 Deletes cascade: removing a board removes its threads and their posts; removing
 a thread removes its posts.
 
 Every command takes a fixed number of arguments, so a value containing spaces
-must be quoted — `post create 1 "hello world"` — with either single or double
-quotes in the REPL; in one-shot mode your shell's own quoting does the same job.
+must be quoted — `post create 1 "hello world"` — using your shell's quoting.
 
-Example REPL session:
+Example session:
 
 ```
->board create hobbies
+$ messageboard board create hobbies
 #1 - hobbies
->thread create 1 model trains
+$ messageboard thread create 1 "model trains"
 #1 - model trains
->post create 1 "hello world"
+$ messageboard post create 1 "hello world"
 2026-06-29 12:00:00 - 1
 hello world
->post list
+$ messageboard post list 1
 2026-06-29 12:00:00 - 1
 hello world
->quit
 ```
 
 ## Current State Of Tests
 
 Each persistence adapter has a contract suite run against an in-memory SQLite DB.
-Each entity's commands are tested at the dispatch level with fake repositories.
-Command routing and the REPL loop are tested separately. The migration runner
+Each entity's commands are tested at the dispatch level with fake repositories,
+and command routing at the evaluator. The migration runner
 has its own suite: history recording, history-based skipping, rollback
 atomicity, and refusal of divergent or newer-than-binary databases. The
 application core is tested against an in-memory database, including transaction
@@ -100,8 +94,6 @@ A pre-push hook runs `gofmt`, `go vet`, and `go test -race`
 | Path                         | Responsibility                                                   |
 | ---------------------------- | ---------------------------------------------------------------- |
 | `main.go`                    | Composition root — open DB, `migrate` or guard, wire, dispatch   |
-| `repl.go`                    | The interactive REPL driver (read loop)                          |
-| `tokeniser.go`               | Shell-style quote-aware tokeniser for REPL lines                 |
 | `commands.go`                | The command evaluator — routes `<entity> <action>` to a handler  |
 | `board_commands.go`          | Board commands + the `boardRepository` port                      |
 | `thread_commands.go`         | Thread commands + the `threadRepository` port                    |
