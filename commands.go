@@ -15,9 +15,6 @@ func (c *commands) execute(tokens []string) (string, error) {
 	if len(tokens) == 0 {
 		return "", ErrMissingCmd
 	}
-	if strings.ToLower(tokens[0]) == "help" {
-		return "help coming soon", nil
-	}
 	result, err := c.entityDispatch(tokens)
 	return result, err
 }

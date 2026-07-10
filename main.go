@@ -13,9 +13,36 @@ import (
 	"github.com/Sam-Blundell/messageboard/thread"
 )
 
+const helpText = `usage: messageboard <command> [args]
+
+  board create <name>               create a board (names are unique)
+  board list                        list all boards
+  board delete <board-id>           delete a board and everything on it
+  thread create <board-id> <title>  create a thread on a board
+  thread list <board-id>            list a board's threads, latest activity first
+  thread delete <thread-id>         delete a thread and its posts
+  post create <thread-id> <body>    create a post in a thread
+  post get <post-id>                fetch a single post
+  post list <thread-id>             list a thread's posts, oldest first
+  migrate                           apply pending schema migrations
+  help                              show this help
+
+Multi-word values must be quoted: board create "general chat"
+Deletes cascade: removing a board removes its threads and their posts.
+`
+
 func run() error {
 	if len(os.Args) < 2 {
 		return errors.New("usage: messageboard <command> [args] — run 'messageboard help' for commands")
+	}
+	// help is meta like usage: it must work on a virgin or outdated database,
+	// so it sits above Open and the schema guard.
+	if strings.ToLower(os.Args[1]) == "help" {
+		if len(os.Args) != 2 {
+			return errors.New("usage: help (takes no arguments)")
+		}
+		fmt.Fprint(os.Stdout, helpText)
+		return nil
 	}
 	db, err := storage.Open("database")
 	if err != nil {

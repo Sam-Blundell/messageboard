@@ -234,12 +234,13 @@ time.Time` (set white-box in package tests — the functional-options version wa
   (`post_commands_test.go`/`board_commands_test.go`); evaluator routing
   (`commands_test.go`); core's DB-backed transaction suite. Per-command behaviour
   lives with its entity, so adding an entity doesn't grow a central table.
-- **Not yet:** `help` is a placeholder string. Reads and single-repo writes still
+- **Not yet:** Reads and single-repo writes still
   call repos directly — they migrate into `core` as they earn it, or when the TUI
   wants the shared API. The `run()` wiring is hand-verified, not unit-tested —
-  and it has accumulated real policy (usage before open, `migrate` above the
-  guard, guard above everything), so parameterising `run(args, stdout, stderr)`
-  is flagged as worth doing.
+  and it has accumulated real policy (usage and `help` above open, `migrate`
+  above the guard, guard above everything), so parameterising
+  `run(args, stdout, stderr)` is flagged as worth doing when the TUI settles
+  main's final shape.
 - **Tooling:** pre-push hook (`gofmt` + `go vet` + `go test -race`); Delve for
   debugging.
 

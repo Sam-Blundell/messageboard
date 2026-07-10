@@ -52,7 +52,7 @@ means creating a thread needs a board ID, and creating a post needs a thread ID.
 | `post get <id>`                    | Fetch a single post by ID                         |
 | `post list <thread-id>`            | List a thread's posts, oldest first               |
 | `migrate`                          | Apply pending schema migrations                   |
-| `help`                             | Show help (placeholder for now)                   |
+| `help`                             | List all commands                                 |
 
 Deletes cascade: removing a board removes its threads and their posts; removing
 a thread removes its posts.

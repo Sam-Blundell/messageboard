@@ -61,13 +61,12 @@ func TestExecuteRouting(t *testing.T) {
 		}
 	})
 
-	t.Run("help is a recognised command", func(t *testing.T) {
-		got, err := newTestCommands().execute([]string{"help"})
-		if err != nil {
-			t.Fatalf("execute: %v", err)
-		}
-		if !strings.Contains(got, "help") {
-			t.Errorf("got %q, want help text", got)
+	// help is not evaluator vocabulary: it's intercepted in run() above the
+	// schema guard (it must work on a virgin database), so here it's unknown.
+	t.Run("help is not an evaluator command", func(t *testing.T) {
+		_, err := newTestCommands().execute([]string{"help"})
+		if err == nil || !strings.Contains(err.Error(), "unknown command") {
+			t.Errorf("got %v, want an unknown-command error", err)
 		}
 	})
 
