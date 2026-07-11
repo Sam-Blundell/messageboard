@@ -11,6 +11,7 @@ import (
 	"github.com/Sam-Blundell/messageboard/post"
 	"github.com/Sam-Blundell/messageboard/storage"
 	"github.com/Sam-Blundell/messageboard/thread"
+	"github.com/Sam-Blundell/messageboard/tui"
 )
 
 const helpText = `usage: messageboard <command> [args]
@@ -81,6 +82,10 @@ func run() error {
 	}
 	if len(pending) > 0 {
 		return fmt.Errorf("database schema is out of date (%d migrations pending): run 'messageboard migrate'", len(pending))
+	}
+
+	if strings.ToLower(os.Args[1]) == "tui" {
+		return tui.Run()
 	}
 
 	posts := post.NewSQLite(db)
