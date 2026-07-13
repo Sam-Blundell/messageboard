@@ -118,9 +118,14 @@ func (m model) View() tea.View {
 	}
 
 	v := tea.NewView(frame)
-	// AltScreen is a property of the view in bubbletea v2: full-window mode,
-	// own screen buffer, restored automatically on exit.
+	// bubbletea v2 is declarative about terminal state: the screen mode, the
+	// canvas colours, and the window title are all properties of the returned
+	// view, applied by the runtime and restored on exit. Painting our own
+	// background means the design renders identically on any terminal theme.
 	v.AltScreen = true
+	v.BackgroundColor = colorBg
+	v.ForegroundColor = colorText
+	v.WindowTitle = "messageboard"
 	return v
 }
 

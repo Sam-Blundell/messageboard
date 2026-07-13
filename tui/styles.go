@@ -4,7 +4,11 @@ import "charm.land/lipgloss/v2"
 
 // Gruvbox Dark palette, named by role rather than hue — tokens from the design
 // handoff. Restyling means editing this block, never hunting hexes in views.
+// The theme is deliberately fixed-dark (*chan aesthetic, per the handoff): no
+// light/dark adaptivity, and the app paints its own background rather than
+// inheriting the terminal's.
 var (
+	colorBg        = lipgloss.Color("#1d2021")
 	colorText      = lipgloss.Color("#ebdbb2")
 	colorSecondary = lipgloss.Color("#a89984")
 	colorMuted     = lipgloss.Color("#928374")
