@@ -26,16 +26,16 @@ var (
 	colHeaderStyle = lipgloss.NewStyle().Foreground(colorMuted)
 	slugStyle      = lipgloss.NewStyle().Foreground(colorLink)
 	nameStyle      = lipgloss.NewStyle().Foreground(colorSecondary)
-	threadsStyle   = lipgloss.NewStyle().Foreground(colorFaint)
+	countColStyle  = lipgloss.NewStyle().Foreground(colorFaint)
 	placeholder    = lipgloss.NewStyle().Foreground(colorFaint)
 
 	// Selection variants all derive from one background-carrying base: every
 	// segment of a selected row must carry the background itself, because each
 	// Render ends in an ANSI reset that would otherwise cut the highlight.
-	selBase    = lipgloss.NewStyle().Background(colorSelection)
-	selSlug    = selBase.Foreground(colorAccent).Bold(true)
-	selName    = selBase.Foreground(colorText).Bold(true)
-	selThreads = selBase.Foreground(colorSecondary)
+	selBase  = lipgloss.NewStyle().Background(colorSelection)
+	selSlug  = selBase.Foreground(colorAccent).Bold(true)
+	selName  = selBase.Foreground(colorText).Bold(true)
+	selCount = selBase.Foreground(colorSecondary)
 
 	// The focused pane wears the accent border; unfocused panes go dim. The
 	// 1-space horizontal padding is the handoff's "cell padding inside panes".

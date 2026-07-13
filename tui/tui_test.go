@@ -40,7 +40,7 @@ func TestLadderShapes(t *testing.T) {
 	})
 
 	t.Run("fullscreen boards has column headers and a border", func(t *testing.T) {
-		out := testModel(60, 24, focusBoards).renderBoardsFull(60, 24)
+		out := testModel(60, 24, focusBoards).boards.viewFull(60, 24)
 		for _, want := range []string{"board", "about", "threads", "╭"} {
 			if !strings.Contains(out, want) {
 				t.Errorf("fullscreen boards missing %q", want)
@@ -49,7 +49,7 @@ func TestLadderShapes(t *testing.T) {
 	})
 
 	t.Run("bare boards drop the border and threads column", func(t *testing.T) {
-		out := testModel(40, 24, focusBoards).renderBoardsFull(40, 24)
+		out := testModel(40, 24, focusBoards).boards.viewFull(40, 24)
 		if strings.Contains(out, "╭") {
 			t.Error("bare variant should have no border")
 		}
@@ -85,7 +85,7 @@ func TestRenderGeometryInvariant(t *testing.T) {
 			case c.width >= railBreak:
 				out = m.splitView(railWidth)
 			default:
-				out = m.renderBoardsFull(c.width, c.height)
+				out = m.boards.viewFull(c.width, c.height)
 			}
 
 			lines := strings.Split(out, "\n")

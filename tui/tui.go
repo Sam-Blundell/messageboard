@@ -26,15 +26,11 @@ const (
 	focusThreads
 )
 
-type boardRow struct {
-	slug        string
-	about       string
-	threadCount int
-}
-
+// model is the root: it composes the pane components and owns only what is
+// global — focus, dimensions, and (eventually) the current view. Pane state
+// lives in the components.
 type model struct {
-	boards []boardRow
-	cursor int
+	boards boardsModel
 	focus  focusArea
 	width  int
 	height int
@@ -42,14 +38,8 @@ type model struct {
 
 func initialModel() model {
 	return model{
-		boards: []boardRow{
-			{slug: "/g/", about: "technology", threadCount: 2},
-			{slug: "/mu/", about: "music", threadCount: 48},
-			{slug: "/tg/", about: "traditional games", threadCount: 30},
-			{slug: "/lit/", about: "literature", threadCount: 51},
-			{slug: "/diy/", about: "do it yourself", threadCount: 12},
-		},
-		focus: focusBoards,
+		boards: newBoardsModel(),
+		focus:  focusBoards,
 	}
 }
 
@@ -66,16 +56,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c", "q":
 			return m, tea.Quit
 
-		case "up", "k":
-			if m.focus == focusBoards && m.cursor > 0 {
-				m.cursor--
-			}
-
-		case "down", "j":
-			if m.focus == focusBoards && m.cursor < len(m.boards)-1 {
-				m.cursor++
-			}
-
 		// Focus doubles as narrow-mode navigation: wide layouts render both
 		// panes and use focus for borders and key routing; narrow layouts
 		// render only the focused view, so changing focus IS the view swap.
@@ -87,6 +67,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "esc": // back out of the boards view without opening a board
 			m.focus = focusThreads
+
+		// everything else belongs to whichever component has focus
+		default:
+			if m.focus == focusBoards {
+				m.boards = m.boards.update(msg)
+			}
 		}
 
 	case tea.WindowSizeMsg:
@@ -112,9 +98,9 @@ func (m model) View() tea.View {
 	case m.width >= railBreak:
 		frame = m.splitView(railWidth)
 	case m.focus == focusBoards:
-		frame = m.renderBoardsFull(m.width, m.height)
+		frame = m.boards.viewFull(m.width, m.height)
 	default:
-		frame = m.renderThreadsPane(m.width, m.height, true)
+		frame = renderThreadsPane(m.width, m.height, true)
 	}
 
 	v := tea.NewView(frame)
@@ -131,8 +117,8 @@ func (m model) View() tea.View {
 
 // splitView is the wide layout: boards beside threads, focus shown by borders.
 func (m model) splitView(boardsWidth int) string {
-	boards := m.renderBoardsSidebar(boardsWidth, m.height, m.focus == focusBoards)
-	threads := m.renderThreadsPane(m.width-boardsWidth, m.height, m.focus == focusThreads)
+	boards := m.boards.viewSidebar(boardsWidth, m.height, m.focus == focusBoards)
+	threads := renderThreadsPane(m.width-boardsWidth, m.height, m.focus == focusThreads)
 	return lipgloss.JoinHorizontal(lipgloss.Top, boards, threads)
 }
 
