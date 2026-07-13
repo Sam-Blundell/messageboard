@@ -31,6 +31,9 @@ func (m model) renderBoardsSidebar(width, height int, focused bool) string {
 	}
 
 	rows := make([]string, 0, len(m.boards))
+	if !rail {
+		rows = append(rows, titleStyle(focused).Render("boards"), "")
+	}
 	for i, b := range m.boards {
 		rows = append(rows, m.sidebarRow(i, b, inner, rail))
 	}
@@ -82,7 +85,7 @@ func (m model) renderBoardsFull(width, height int) string {
 	}
 
 	// pane header: title left, count right — space-between via gap fill
-	title := titleStyle.Render("boards")
+	title := titleStyle(true).Render("boards")
 	countContent := fmt.Sprintf("%d", len(m.boards))
 	if !bare {
 		countContent = countContent + " boards"

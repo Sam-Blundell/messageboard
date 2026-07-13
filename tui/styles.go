@@ -16,7 +16,8 @@ var (
 )
 
 var (
-	titleStyle     = lipgloss.NewStyle().Foreground(colorAccent).Bold(true)
+	focusedTitle   = lipgloss.NewStyle().Foreground(colorAccent).Bold(true)
+	unfocusedTitle = lipgloss.NewStyle().Foreground(colorBorderDim)
 	countStyle     = lipgloss.NewStyle().Foreground(colorFaint)
 	colHeaderStyle = lipgloss.NewStyle().Foreground(colorMuted)
 	slugStyle      = lipgloss.NewStyle().Foreground(colorLink)
@@ -49,4 +50,11 @@ func paneStyle(focused bool) lipgloss.Style {
 		return focusedPane
 	}
 	return unfocusedPane
+}
+
+func titleStyle(focused bool) lipgloss.Style {
+	if focused {
+		return focusedTitle
+	}
+	return unfocusedTitle
 }
