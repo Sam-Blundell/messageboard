@@ -22,7 +22,7 @@ type Migration struct {
 // and each database's applied history must remain a prefix of this list. To fix
 // a past migration, append a new one that corrects it.
 var Migrations = []Migration{
-	{name: "create board table", stmt: "CREATE TABLE IF NOT EXISTS board (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE CHECK (name <> ''))"},
+	{name: "create board table", stmt: "CREATE TABLE IF NOT EXISTS board (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE CHECK (name <> '' AND length(name) <= 24))"},
 	{name: "create thread table", stmt: "CREATE TABLE IF NOT EXISTS thread (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL CHECK (title <> ''), board_id INTEGER NOT NULL REFERENCES board(id) ON DELETE CASCADE, created_at INTEGER NOT NULL, bumped_at INTEGER NOT NULL)"},
 	{name: "create post table", stmt: "CREATE TABLE IF NOT EXISTS post (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, body TEXT NOT NULL CHECK (body <> ''), thread_id INTEGER NOT NULL REFERENCES thread(id) ON DELETE CASCADE, created_at INTEGER NOT NULL)"},
 }

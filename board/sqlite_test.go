@@ -3,6 +3,7 @@ package board
 import (
 	"database/sql"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/Sam-Blundell/messageboard/storage"
@@ -52,6 +53,29 @@ func testRepository(t *testing.T, newRepo func() *SQLite) {
 		}
 		if got.Name != "general" {
 			t.Errorf("got name %q, want %q", got.Name, "general")
+		}
+	})
+
+	t.Run("create accepts a name at the length cap", func(t *testing.T) {
+		name := strings.Repeat("x", 24)
+		got := mustCreate(t, newRepo(), name)
+		if got.Name != name {
+			t.Errorf("got name %q, want %q", got.Name, name)
+		}
+	})
+
+	t.Run("create rejects a name over the length cap", func(t *testing.T) {
+		repo := newRepo()
+		_, err := repo.Create(strings.Repeat("x", 25))
+		if err == nil {
+			t.Fatal("expected an error for a 25-char name")
+		}
+		boards, listErr := repo.List()
+		if listErr != nil {
+			t.Fatalf("List: %v", listErr)
+		}
+		if len(boards) != 0 {
+			t.Errorf("got %d boards persisted, want 0", len(boards))
 		}
 	})
 
