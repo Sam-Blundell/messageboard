@@ -20,7 +20,7 @@ func testModel(width, height int, focus focusArea) model {
 // assert the shape that breakpoint promises.
 func TestLadderShapes(t *testing.T) {
 	t.Run("wide split shows both panes", func(t *testing.T) {
-		out := testModel(120, 30, focusBoards).splitView(sidebarWidth)
+		out := testModel(120, 30, focusBoards).splitView(sidebarWidth, 29)
 		if !strings.Contains(out, "technology") {
 			t.Error("sidebar should show about text at full width")
 		}
@@ -30,7 +30,7 @@ func TestLadderShapes(t *testing.T) {
 	})
 
 	t.Run("rail keeps slugs but drops the about text", func(t *testing.T) {
-		out := testModel(90, 30, focusBoards).splitView(railWidth)
+		out := testModel(90, 30, focusBoards).splitView(railWidth, 29)
 		if !strings.Contains(out, "/g/") {
 			t.Error("rail should still show slugs")
 		}
@@ -59,48 +59,58 @@ func TestLadderShapes(t *testing.T) {
 	})
 }
 
-// Geometry invariant: under lipgloss v2's border-box model, a pane renders at
-// exactly its allocation. Every line of a frame must measure exactly the frame
-// width (bare spacer lines exempt — no pane exists to pad them), and bordered
-// frames must fill the height. Off-by-two boxes and mismatched column tracks
-// both fail this; containment tests can't see either.
+// Geometry invariant: a full frame is exactly height lines of exactly width
+// cells — panes at their allocations, the status bar on the bottom row, and
+// JoinVertical padding whatever the bare variant leaves ragged. Off-by-two
+// boxes and mismatched column tracks both fail this; containment tests can't
+// see either.
 func TestRenderGeometryInvariant(t *testing.T) {
 	cases := []struct {
 		name   string
 		width  int
 		height int
+		focus  focusArea
 	}{
-		{"wide split", 120, 30},
-		{"rail split", 90, 24},
-		{"fullscreen bordered", 60, 24},
-		{"fullscreen bare", 40, 20},
+		{"wide split", 120, 30, focusBoards},
+		{"rail split", 90, 24, focusBoards},
+		{"fullscreen bordered", 60, 24, focusBoards},
+		{"fullscreen bare", 40, 20, focusBoards},
+		{"fullscreen threads", 60, 24, focusThreads},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			m := testModel(c.width, c.height, focusBoards)
-			var out string
-			switch {
-			case c.width >= wideBreak:
-				out = m.splitView(sidebarWidth)
-			case c.width >= railBreak:
-				out = m.splitView(railWidth)
-			default:
-				out = m.boards.viewFull(c.width, c.height)
-			}
+			out := testModel(c.width, c.height, c.focus).frameView()
 
 			lines := strings.Split(out, "\n")
+			if len(lines) != c.height {
+				t.Errorf("got %d lines, want %d", len(lines), c.height)
+			}
 			for i, line := range lines {
-				w := lipgloss.Width(line)
-				if w == 0 && c.width <= bareBreak {
-					continue
-				}
-				if w != c.width {
+				if w := lipgloss.Width(line); w != c.width {
 					t.Errorf("line %d: width %d, want %d", i, w, c.width)
 				}
 			}
-			if c.width > bareBreak && len(lines) != c.height {
-				t.Errorf("got %d lines, want %d", len(lines), c.height)
-			}
 		})
+	}
+}
+
+// The status bar is the mode indicator: chip for where, context for state
+// (position + the hovered board's untruncated name), keybar for what the
+// keys are — pane keys first, globals after, help last.
+func TestStatusBarDescribesFocusedPane(t *testing.T) {
+	out := testModel(120, 30, focusBoards).frameView()
+	lines := strings.Split(out, "\n")
+	bar := lines[len(lines)-1]
+
+	for _, want := range []string{"BOARDS", "1/5 · technology", "move", "help"} {
+		if !strings.Contains(bar, want) {
+			t.Errorf("status bar missing %q in %q", want, bar)
+		}
+	}
+
+	out = testModel(120, 30, focusThreads).frameView()
+	lines = strings.Split(out, "\n")
+	if bar := lines[len(lines)-1]; !strings.Contains(bar, "THREADS") {
+		t.Errorf("status bar should carry the threads chip, got %q", bar)
 	}
 }

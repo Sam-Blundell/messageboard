@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 )
@@ -22,17 +23,36 @@ type boardRow struct {
 	threadCount int
 }
 
+// boardsKeyMap holds the bindings this pane owns. Up and Down exist for
+// matching; Move is display-only — the keybar shows one "j/k move" entry
+// where matching needs two distinguishable bindings.
+type boardsKeyMap struct {
+	Up   key.Binding
+	Down key.Binding
+	Move key.Binding
+}
+
+func defaultBoardsKeys() boardsKeyMap {
+	return boardsKeyMap{
+		Up:   key.NewBinding(key.WithKeys("k", "up")),
+		Down: key.NewBinding(key.WithKeys("j", "down")),
+		Move: key.NewBinding(key.WithKeys("j", "k"), key.WithHelp("j/k", "move")),
+	}
+}
+
 // boardsModel is the boards component: one set of state, projected as the
 // wide sidebar, the narrow rail, or the fullscreen table by the renderers.
 type boardsModel struct {
 	rows   []boardRow
 	cursor int
+	keys   boardsKeyMap
 }
 
 // newBoardsModel returns the component with fixture data. The literals are
 // scaffolding: they die at the data step, when boards arrive by tea.Cmd.
 func newBoardsModel() boardsModel {
 	return boardsModel{
+		keys: defaultBoardsKeys(),
 		rows: []boardRow{
 			{slug: "/g/", about: "technology", threadCount: 2},
 			{slug: "/mu/", about: "music", threadCount: 48},
@@ -46,17 +66,36 @@ func newBoardsModel() boardsModel {
 // update handles the keys the boards component owns. The root routes messages
 // here only when this pane has focus; global vocabulary never arrives.
 func (b boardsModel) update(msg tea.KeyPressMsg) boardsModel {
-	switch msg.String() {
-	case "up", "k":
+	switch {
+	case key.Matches(msg, b.keys.Up):
 		if b.cursor > 0 {
 			b.cursor--
 		}
-	case "down", "j":
+	case key.Matches(msg, b.keys.Down):
 		if b.cursor < len(b.rows)-1 {
 			b.cursor++
 		}
 	}
 	return b
+}
+
+// shortHelp is this pane's contribution to the keybar; the root appends the
+// globals after it.
+func (b boardsModel) shortHelp() []key.Binding {
+	return []key.Binding{b.keys.Move}
+}
+
+// status describes this pane to the status bar: position plus the hovered
+// board's full name — the untruncated answer to whatever the sidebar elides.
+func (b boardsModel) status() statusInfo {
+	if len(b.rows) == 0 {
+		return statusInfo{chip: "BOARDS", context: "no boards"}
+	}
+	hovered := b.rows[b.cursor]
+	return statusInfo{
+		chip:    "BOARDS",
+		context: fmt.Sprintf("%d/%d · %s", b.cursor+1, len(b.rows), hovered.about),
+	}
 }
 
 // viewSidebar draws the boards list as a side pane. With room it shows a

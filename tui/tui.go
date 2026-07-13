@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"charm.land/bubbles/v2/help"
+	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 )
@@ -32,6 +34,7 @@ const (
 type model struct {
 	boards boardsModel
 	focus  focusArea
+	help   help.Model
 	width  int
 	height int
 }
@@ -40,6 +43,7 @@ func initialModel() model {
 	return model{
 		boards: newBoardsModel(),
 		focus:  focusBoards,
+		help:   newKeybarHelp(),
 	}
 }
 
@@ -51,22 +55,24 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 
 	case tea.KeyPressMsg:
-		switch msg.String() {
-
-		case "ctrl+c", "q":
+		switch {
+		case key.Matches(msg, keys.Quit):
 			return m, tea.Quit
 
 		// Focus doubles as narrow-mode navigation: wide layouts render both
 		// panes and use focus for borders and key routing; narrow layouts
 		// render only the focused view, so changing focus IS the view swap.
-		case "h", "tab":
+		case key.Matches(msg, keys.Boards):
 			m.focus = focusBoards
 
-		case "l", "enter":
+		case key.Matches(msg, keys.Open):
 			m.focus = focusThreads
 
-		case "esc": // back out of the boards view without opening a board
+		case key.Matches(msg, keys.Back): // back out without opening a board
 			m.focus = focusThreads
+
+		case key.Matches(msg, keys.Help):
+			// the ? overlay arrives with the help screen (see DEFERRED.md)
 
 		// everything else belongs to whichever component has focus
 		default:
@@ -83,27 +89,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// View is the root allocator: it decides which panes exist and what width
-// each one gets. The renderers never read m.width — they fill what they're
-// given, which is what lets the same boards component serve every breakpoint.
 func (m model) View() tea.View {
-	var frame string
-	switch {
-	case m.width == 0:
-		frame = "" // the first frame can arrive before WindowSizeMsg
-	case m.width < 24 || m.height < 6:
-		frame = "terminal too small"
-	case m.width >= wideBreak:
-		frame = m.splitView(sidebarWidth)
-	case m.width >= railBreak:
-		frame = m.splitView(railWidth)
-	case m.focus == focusBoards:
-		frame = m.boards.viewFull(m.width, m.height)
-	default:
-		frame = renderThreadsPane(m.width, m.height, true)
-	}
-
-	v := tea.NewView(frame)
+	v := tea.NewView(m.frameView())
 	// bubbletea v2 is declarative about terminal state: the screen mode, the
 	// canvas colours, and the window title are all properties of the returned
 	// view, applied by the runtime and restored on exit. Painting our own
@@ -115,11 +102,65 @@ func (m model) View() tea.View {
 	return v
 }
 
+// frameView is the root allocator: it decides which panes exist and what
+// space each one gets — the status bar takes the bottom row, panes divide the
+// rest. The renderers never read m.width; they fill what they're given, which
+// is what lets the same boards component serve every breakpoint.
+func (m model) frameView() string {
+	switch {
+	case m.width == 0:
+		return "" // the first frame can arrive before WindowSizeMsg
+	case m.width < 24 || m.height < 6:
+		return "terminal too small"
+	}
+
+	paneHeight := m.height - 1 // the status bar owns the bottom row
+
+	var panes string
+	switch {
+	case m.width >= wideBreak:
+		panes = m.splitView(sidebarWidth, paneHeight)
+	case m.width >= railBreak:
+		panes = m.splitView(railWidth, paneHeight)
+	case m.focus == focusBoards:
+		panes = m.boards.viewFull(m.width, paneHeight)
+	default:
+		panes = renderThreadsPane(m.width, paneHeight, true)
+	}
+
+	// The allocator enforces its own allocation: variants that don't fill
+	// their height (the bare table has no pane to stretch it) get padded, so
+	// the bar always sits on the terminal's bottom row.
+	panes = lipgloss.NewStyle().Height(paneHeight).Render(panes)
+
+	bar := renderStatusBar(m.statusInfo(), m.footerBindings(), m.help, m.width)
+	return lipgloss.JoinVertical(lipgloss.Left, panes, bar)
+}
+
 // splitView is the wide layout: boards beside threads, focus shown by borders.
-func (m model) splitView(boardsWidth int) string {
-	boards := m.boards.viewSidebar(boardsWidth, m.height, m.focus == focusBoards)
-	threads := renderThreadsPane(m.width-boardsWidth, m.height, m.focus == focusThreads)
+func (m model) splitView(boardsWidth, height int) string {
+	boards := m.boards.viewSidebar(boardsWidth, height, m.focus == focusBoards)
+	threads := renderThreadsPane(m.width-boardsWidth, height, m.focus == focusThreads)
 	return lipgloss.JoinHorizontal(lipgloss.Top, boards, threads)
+}
+
+// statusInfo asks the focused component to describe itself for the bar.
+func (m model) statusInfo() statusInfo {
+	if m.focus == focusBoards {
+		return m.boards.status()
+	}
+	// the real chip (board slug) arrives with the threads component
+	return statusInfo{chip: "THREADS"}
+}
+
+// footerBindings assembles the keybar: the focused pane's keys first, then
+// the globals in their fixed order.
+func (m model) footerBindings() []key.Binding {
+	var bindings []key.Binding
+	if m.focus == focusBoards {
+		bindings = m.boards.shortHelp()
+	}
+	return append(bindings, keys.shortHelp()...)
 }
 
 func Run() error {

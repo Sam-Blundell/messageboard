@@ -9,6 +9,7 @@ import "charm.land/lipgloss/v2"
 // inheriting the terminal's.
 var (
 	colorBg        = lipgloss.Color("#1d2021")
+	colorChrome    = lipgloss.Color("#282828")
 	colorText      = lipgloss.Color("#ebdbb2")
 	colorSecondary = lipgloss.Color("#a89984")
 	colorMuted     = lipgloss.Color("#928374")
@@ -36,6 +37,12 @@ var (
 	selSlug  = selBase.Foreground(colorAccent).Bold(true)
 	selName  = selBase.Foreground(colorText).Bold(true)
 	selCount = selBase.Foreground(colorSecondary)
+
+	// Status bar chrome: the chip is text on the accent, everything else sits
+	// on the chrome background (colorChrome) so the bar reads as one object.
+	chipStyle    = lipgloss.NewStyle().Background(colorAccent).Foreground(colorChrome).Bold(true).Padding(0, 1)
+	contextStyle = lipgloss.NewStyle().Background(colorChrome).Foreground(colorSecondary)
+	barStyle     = lipgloss.NewStyle().Background(colorChrome)
 
 	// The focused pane wears the accent border; unfocused panes go dim. The
 	// 1-space horizontal padding is the handoff's "cell padding inside panes".
