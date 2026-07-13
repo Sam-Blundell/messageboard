@@ -21,11 +21,13 @@ const (
 // alone (the ladder's one non-degradable invariant).
 func (m model) renderBoardsSidebar(width, height int, focused bool) string {
 	pane := paneStyle(focused)
-	inner := width - 4 // border (2) + pane padding (2)
+	fx, _ := pane.GetFrameSize()
+	inner := width - fx
 	rail := inner < 14
 	if rail {
 		pane = pane.Padding(0)
-		inner = width - 2
+		fx, _ = pane.GetFrameSize()
+		inner = width - fx
 	}
 
 	rows := make([]string, 0, len(m.boards))
@@ -33,7 +35,7 @@ func (m model) renderBoardsSidebar(width, height int, focused bool) string {
 		rows = append(rows, m.sidebarRow(i, b, inner, rail))
 	}
 	content := strings.Join(rows, "\n")
-	return pane.Width(width - 2).Height(height - 2).Render(content)
+	return pane.Width(width).Height(height).Render(content)
 }
 
 func (m model) sidebarRow(i int, b boardRow, width int, rail bool) string {
@@ -69,10 +71,10 @@ func (m model) sidebarRow(i int, b boardRow, width int, rail bool) string {
 // border and the threads column are given up — the ladder's last steps.
 func (m model) renderBoardsFull(width, height int) string {
 	bare := width <= bareBreak
-
 	inner := width
 	if !bare {
-		inner = width - 4 // border + pane padding
+		fx, _ := focusedPane.GetFrameSize()
+		inner = width - fx
 	}
 	aboutWidth := inner - markerWidth - slugColWidth
 	if !bare {
@@ -81,19 +83,24 @@ func (m model) renderBoardsFull(width, height int) string {
 
 	// pane header: title left, count right — space-between via gap fill
 	title := titleStyle.Render("boards")
-	count := countStyle.Render(fmt.Sprintf("%d boards", len(m.boards)))
+	countContent := fmt.Sprintf("%d", len(m.boards))
+	if !bare {
+		countContent = countContent + " boards"
+	}
+	count := countStyle.Render(countContent)
 	gap := inner - lipgloss.Width(title) - lipgloss.Width(count)
 	header := title + strings.Repeat(" ", max(gap, 1)) + count
 
 	// column headers ride the same tracks as the rows
 	cols := strings.Repeat(" ", markerWidth) +
 		colHeaderStyle.Width(slugColWidth).Render("board") +
-		colHeaderStyle.Width(aboutWidth).Render("about")
-	if !bare {
-		cols += colHeaderStyle.Width(threadsWidth).Align(lipgloss.Right).Render("threads")
-	}
+		colHeaderStyle.Width(aboutWidth).Render("about") +
+		colHeaderStyle.Width(threadsWidth).Align(lipgloss.Right).Render("threads")
 
-	lines := []string{header, "", cols}
+	lines := []string{header, ""}
+	if !bare {
+		lines = append(lines, cols)
+	}
 	for i, b := range m.boards {
 		lines = append(lines, m.boardTableRow(i, b, aboutWidth, bare))
 	}
@@ -102,7 +109,7 @@ func (m model) renderBoardsFull(width, height int) string {
 	if bare {
 		return content
 	}
-	return focusedPane.Width(width - 2).Height(height - 2).Render(content)
+	return focusedPane.Width(width).Height(height).Render(content)
 }
 
 // boardTableRow lays one board onto the column tracks. The tracks fill the

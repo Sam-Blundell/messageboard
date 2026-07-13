@@ -7,6 +7,8 @@ import "charm.land/lipgloss/v2"
 // the narrow-mode h/l swap are real today.
 func (m model) renderThreadsPane(width, height int, focused bool) string {
 	body := placeholder.Render("threads — coming soon")
-	content := lipgloss.Place(width-4, height-2, lipgloss.Center, lipgloss.Center, body)
-	return paneStyle(focused).Width(width - 2).Height(height - 2).Render(content)
+	pane := paneStyle(focused)
+	fx, fy := pane.GetFrameSize()
+	content := lipgloss.Place(width-fx, height-fy, lipgloss.Center, lipgloss.Center, body)
+	return pane.Width(width).Height(height).Render(content)
 }
