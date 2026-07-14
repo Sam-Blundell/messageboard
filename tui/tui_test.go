@@ -94,6 +94,58 @@ func TestRenderGeometryInvariant(t *testing.T) {
 	}
 }
 
+// fitKeybar selects rather than truncates: bindings drop rightmost-first as
+// the budget shrinks, except the pinned last binding, which survives at every
+// width where anything renders. The table also pins our reliance on an unset
+// help width meaning "never truncate" — if a bubbles upgrade changes that,
+// this goes red.
+func TestFitKeybar(t *testing.T) {
+	hm := newKeybarHelp()
+	bindings := testModel(120, 30, focusBoards).footerBindings()
+	full := hm.ShortHelpView(bindings)
+	fullWidth := lipgloss.Width(full)
+
+	t.Run("everything renders when it fits", func(t *testing.T) {
+		if got := fitKeybar(hm, bindings, fullWidth); got != full {
+			t.Errorf("got %q, want the full keybar %q", got, full)
+		}
+	})
+
+	t.Run("the rightmost unpinned binding drops first", func(t *testing.T) {
+		got := fitKeybar(hm, bindings, fullWidth-1)
+		if strings.Contains(got, "back") {
+			t.Errorf("got %q, want 'back' dropped before anything else", got)
+		}
+		for _, want := range []string{"move", "help"} {
+			if !strings.Contains(got, want) {
+				t.Errorf("got %q, want %q still present", got, want)
+			}
+		}
+	})
+
+	t.Run("help survives at every width where anything renders", func(t *testing.T) {
+		for width := fullWidth; width > 0; width-- {
+			got := fitKeybar(hm, bindings, width)
+			if got != "" && !strings.Contains(got, "help") {
+				t.Fatalf("width %d: got %q without 'help'", width, got)
+			}
+		}
+	})
+
+	t.Run("below the floor renders nothing", func(t *testing.T) {
+		if got := fitKeybar(hm, bindings, 2); got != "" {
+			t.Errorf("got %q, want empty below the minimum", got)
+		}
+	})
+
+	t.Run("the input slice is not consumed", func(t *testing.T) {
+		fitKeybar(hm, bindings, 5) // force maximal dropping
+		if got := fitKeybar(hm, bindings, fullWidth); got != full {
+			t.Error("a narrow fit mutated the caller's bindings")
+		}
+	})
+}
+
 // The status bar is the mode indicator: chip for where, context for state
 // (position + the hovered board's untruncated name), keybar for what the
 // keys are — pane keys first, globals after, help last.

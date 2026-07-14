@@ -21,6 +21,7 @@ makes this a ledger rather than a graveyard.
 | `tea.View.Cursor` for real cursor support | the reply composer's textarea |
 | Read the bubbles v2 upgrade guide before using `key`/`help` | the status-bar/keybar step (imminent) |
 | Wide-rune-aware truncation | non-ASCII board/thread content ever mattering |
+| Own keybar rendering for the mock's `? more`/`? keys` labels | wanting the ladder's exact relabelling — fitKeybar covers *selection*; labels need custom rendering |
 
 ## Core / cross-layer
 

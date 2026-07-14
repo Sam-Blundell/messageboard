@@ -35,9 +35,33 @@ func newKeybarHelp() help.Model {
 // stays unbroken edge to edge.
 const barMargin = 1
 
+// fitKeybar renders the widest run of bindings that fits the budget. The
+// final binding is pinned — it survives every cut, so the most universal key
+// (help) outlives the merely useful; everything else drops rightmost-first,
+// display order preserved. Selection, not truncation: the help model renders
+// whatever it's given (an unset help width means "never truncate" — verified
+// in the bubbles source, pinned by TestFitKeybar), and this loop decides what
+// it's given.
+func fitKeybar(hm help.Model, bindings []key.Binding, width int) string {
+	candidates := make([]key.Binding, len(bindings))
+	copy(candidates, bindings)
+
+	for len(candidates) > 0 {
+		bar := hm.ShortHelpView(candidates)
+		if lipgloss.Width(bar) <= width {
+			return bar
+		}
+		if len(candidates) == 1 {
+			return "" // even the pinned binding alone doesn't fit
+		}
+		// drop the rightmost unpinned binding; the pin keeps its last place
+		candidates = append(candidates[:len(candidates)-2], candidates[len(candidates)-1])
+	}
+	return ""
+}
+
 // renderStatusBar draws the one-row bar: chip, context, and the keybar
-// right-aligned via gap fill. The help model truncates the keybar to whatever
-// width remains (its built-in ellipsis is the ladder's keybar degradation).
+// right-aligned via gap fill, fitted to the remaining budget by fitKeybar.
 func renderStatusBar(info statusInfo, bindings []key.Binding, hm help.Model, width int) string {
 	inner := width - 2*barMargin
 
@@ -49,11 +73,7 @@ func renderStatusBar(info statusInfo, bindings []key.Binding, hm help.Model, wid
 	}
 
 	used := lipgloss.Width(chip) + lipgloss.Width(context)
-	var keybar string
-	if remaining := inner - used; remaining > 0 {
-		hm.SetWidth(remaining)
-		keybar = hm.ShortHelpView(bindings)
-	}
+	keybar := fitKeybar(hm, bindings, inner-used)
 
 	gap := inner - used - lipgloss.Width(keybar)
 	if gap < 0 {
